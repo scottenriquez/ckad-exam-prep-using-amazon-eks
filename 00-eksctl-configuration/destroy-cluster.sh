@@ -1,0 +1,1 @@
+eksctl delete cluster --config-file=cluster.yaml --disable-nodegroup-eviction

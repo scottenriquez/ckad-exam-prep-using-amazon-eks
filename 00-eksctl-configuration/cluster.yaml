@@ -1,0 +1,12 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eksctl-cluster 
+  region: us-west-2 
+  version: "1.30"
+
+nodeGroups:
+  - name: node-group-1 
+    instanceType: t3.medium 
+    desiredCapacity: 2 
