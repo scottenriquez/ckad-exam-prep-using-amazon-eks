@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-load-balancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    # by default, a Classic Load Balancer is created
+    # https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html
+    # this annotation creates a Network Load Balancer
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  selector:
+    name: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  clusterIP: "10.100.0.100"
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: "192.0.2.127" 

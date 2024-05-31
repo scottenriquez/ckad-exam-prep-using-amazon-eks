@@ -9,4 +9,7 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-  type: ClusterIP 
+      # nodePort is used for external access
+  # ClusterIP services are only accessible within the cluster
+  # NodePort services are a way to expose ClusterIP services externally without using a cloud provider's load balancer
+  type: ClusterIP

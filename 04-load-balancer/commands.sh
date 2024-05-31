@@ -1,13 +1,11 @@
 kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-# 10.100.120.203 is the service IP address
-kubectl describe service nginx-service
+kubectl apply -f load-balancer.yaml
 # entering busybox container shell
 kubectl run -it --rm --restart=Never busybox --image=gcr.io/google-containers/busybox sh
-# can also use wget nginx-service instead of the IP address 
-wget 10.100.120.203
+# can also use wget nginx-load-balancer instead of the IP address 
+wget 10.100.0.100
 cat index.html
 # returning to default shell
 exit
 kubectl delete -f deployment.yaml
-kubectl delete -f service.yaml
+kubectl delete -f load-balancer.yaml
