@@ -2,7 +2,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: eksctl-cluster 
+  name: learning-kubernetes
   region: us-west-2 
   version: "1.30"
 
