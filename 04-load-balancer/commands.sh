@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f deployment.yaml
 kubectl apply -f load-balancer.yaml
 # entering busybox container shell

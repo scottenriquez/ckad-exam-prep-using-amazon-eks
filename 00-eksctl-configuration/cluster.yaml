@@ -10,3 +10,5 @@ nodeGroups:
   - name: node-group-1 
     instanceType: t3.medium 
     desiredCapacity: 2 
+    minSize: 1
+    maxSize: 4

@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 # install AWS Load Balancer Controller
 # https://docs.aws.amazon.com/eks/latest/userguide/lbc-manifest.html
 curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json

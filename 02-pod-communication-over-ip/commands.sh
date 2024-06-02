@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f deployment.yaml
 # 192.168.51.32 is the initial pod IP address
 # when the pod is replaced, this IP address changes
