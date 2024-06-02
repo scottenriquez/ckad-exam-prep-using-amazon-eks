@@ -1,20 +1,35 @@
+---
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
-
 metadata:
-  name: cluster-with-karpenter
+  name: scottenriquez-karpenter-demo
   region: us-west-2
-  version: '1.30'
+  version: "1.28"
   tags:
-    karpenter.sh/discovery: cluster-with-karpenter # here, it is set to the cluster name
-iam:
-  withOIDC: true # required
+    karpenter.sh/discovery: scottenriquez-karpenter-demo
 
-karpenter:
-  version: 'v0.37.0' # Exact version must be specified
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: karpenter
+      namespace: "karpenter"
+    roleName: scottenriquez-karpenter-demo-karpenter
+    attachPolicyARNs:
+    - arn:aws:iam::196736724465:policy/KarpenterControllerPolicy-scottenriquez-karpenter-demo
+    roleOnly: true
+
+iamIdentityMappings:
+- arn: "arn:aws:iam::196736724465:role/KarpenterNodeRole-scottenriquez-karpenter-demo"
+  username: system:node:{{EC2PrivateDNSName}}
+  groups:
+  - system:bootstrappers
+  - system:nodes
 
 managedNodeGroups:
-  - name: managed-ng-1
-    minSize: 1
-    maxSize: 2
-    desiredCapacity: 1
+- instanceType: t3.medium
+  amiFamily: AmazonLinux2
+  name: scottenriquez-karpenter-demo-ng
+  desiredCapacity: 2
+  minSize: 2
+  maxSize: 5

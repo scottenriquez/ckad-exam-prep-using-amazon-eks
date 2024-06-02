@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 # 10.100.120.203 is the service IP address
