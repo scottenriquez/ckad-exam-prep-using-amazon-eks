@@ -106,7 +106,7 @@ spec:
     cpu: 1000
   disruption:
     consolidationPolicy: WhenUnderutilized
-    expireAfter: 720h # 30 * 24h = 720h
+    expireAfter: 720h
 ---
 apiVersion: karpenter.k8s.aws/v1beta1
 kind: EC2NodeClass
@@ -138,3 +138,9 @@ kubectl logs -f -n "${KARPENTER_NAMESPACE}" -l app.kubernetes.io/name=karpenter 
 kubectl delete deployment inflate
 
 # clean up
+helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
+aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
+aws ec2 describe-launch-templates --filters Name=tag:karpenter.k8s.aws/cluster,Values=${CLUSTER_NAME} |
+    jq -r ".LaunchTemplates[].LaunchTemplateName" |
+    xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
+eksctl delete cluster --name "${CLUSTER_NAME}"
