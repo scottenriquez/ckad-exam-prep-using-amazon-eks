@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: config-api
+  template:
+    metadata:
+      labels:
+        name: config-api
+    spec:
+      containers:
+        - name: config-api-container
+          # deployed via CDK
+          image: 196736724465.dkr.ecr.us-west-2.amazonaws.com/cdk-hnb659fds-container-assets-196736724465-us-west-2:afbbd8d7b43a7f833eb07c26a13d5344fa7656c136b1e27b545490fa58dad983
+          ports:
+            - containerPort: 8000
+          env:
+            - name: CONFIG_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-configmap
+                  key: config-message

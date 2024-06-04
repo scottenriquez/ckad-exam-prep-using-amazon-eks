@@ -28,8 +28,10 @@ kubectl get deployment -n kube-system aws-load-balancer-controller
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 kubectl apply -f ingress.yaml
+
 # gets address (e.g, http://k8s-default-ingress-08daebdfec-204015293.us-west-2.elb.amazonaws.com/) that can be opened in a web browser
-kubectl describe ingress 
+kubectl describe ingress
+
 # clean up
 kubectl delete -f ingress.yaml
 kubectl delete -f service.yaml

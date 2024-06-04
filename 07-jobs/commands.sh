@@ -15,5 +15,6 @@ kubectl apply -f cronjob.yaml
 kubectl get pods
 kubectl logs hello-28621501-7rch5
 
+# clean up
 kubectl delete -f job.yaml
 kubectl delete -f cronjob.yaml
