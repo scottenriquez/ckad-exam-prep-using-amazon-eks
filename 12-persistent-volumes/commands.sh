@@ -11,12 +11,19 @@ eksctl create iamserviceaccount \
     --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
     --approve
 eksctl create addon --name aws-ebs-csi-driver --cluster learning-kubernetes --service-account-role-arn arn:aws:iam::196736724465:role/AmazonEKS_EBS_CSI_DriverRole --force
-# create gp3 storage class
+# create io1 storage class
 kubectl apply -f storage-class.yaml
 
-# static volume provisioning
+# dynamic volume provisioning
 kubectl apply -f persistent-volume-claim.yaml
 kubectl apply -f pod.yaml
+
+# entering pod shell
+kubectl exec -it app -- /bin/sh
+cd data/
+cat out.txt
+# returning to default shell
+exit
 
 # clean up
 kubectl delete -f storage-class.yaml
