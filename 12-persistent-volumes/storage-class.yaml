@@ -6,8 +6,7 @@ provisioner: ebs.csi.aws.com
 volumeBindingMode: WaitForFirstConsumer
 parameters:
   csi.storage.k8s.io/fstype: xfs
-  type: io1
-  iopsPerGB: "50"
+  type: gp3
   encrypted: "true"
 allowedTopologies:
   - matchLabelExpressions:

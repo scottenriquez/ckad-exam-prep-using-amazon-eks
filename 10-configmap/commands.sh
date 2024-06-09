@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 # build and test container locally
 docker build -t scottenriquez/fastapi-example ./API/container/
 docker run -p 8080:8000 scottenriquez/fastapi-example
