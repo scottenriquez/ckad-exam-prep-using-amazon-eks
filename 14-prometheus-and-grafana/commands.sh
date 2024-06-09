@@ -1,3 +1,4 @@
+# assumes cluster created from 00-eksctl-configuration first
 # install Helm on local machine
 # https://helm.sh/docs/intro/install/
 brew install helm
