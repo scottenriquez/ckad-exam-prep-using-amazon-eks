@@ -7,4 +7,3 @@ functions:
     lang: python
     handler: ./openfaas-python-function
     image: docker.io/scottenriquez/openfaas-python-function:latest
-
