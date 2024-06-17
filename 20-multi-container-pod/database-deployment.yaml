@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-database
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: database
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+        - name: database
+          image: postgres
+          envFrom:
+            - configMapRef:
+                name: database-access
+          ports:
+            - containerPort: 5432
+        - name: database-admin
+          image: adminer
+          ports:
+            - containerPort: 8080
