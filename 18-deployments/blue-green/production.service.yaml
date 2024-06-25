@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: production-service
+  labels:
+    env: production
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx
+    role: blue
+  ports:
+    - port: 9000
+      targetPort: 80

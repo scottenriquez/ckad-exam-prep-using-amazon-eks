@@ -15,7 +15,7 @@ kubectl apply -f configmap.yaml
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 
-# entering busybox container shell
+# entering BusyBox container shell
 kubectl run -it --rm --restart=Never busybox --image=gcr.io/google-containers/busybox sh
 wget config-api-service:80/api/config
 cat config

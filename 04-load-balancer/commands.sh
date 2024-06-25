@@ -2,7 +2,7 @@
 kubectl apply -f deployment.yaml
 kubectl apply -f load-balancer.yaml
 
-# entering busybox container shell
+# entering BusyBox container shell
 kubectl run -it --rm --restart=Never busybox --image=gcr.io/google-containers/busybox sh
 # can also use wget nginx-load-balancer instead of the IP address 
 wget 10.100.0.100
