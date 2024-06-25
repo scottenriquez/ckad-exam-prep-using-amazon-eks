@@ -6,7 +6,7 @@ docker push scottenriquez/blue-nginx-app
 docker build -t scottenriquez/green-nginx-app ./green
 docker push scottenriquez/green-nginx-app
 
-# deploy initial resources
+# deploy resources
 kubectl apply -f ./
 
 # entering BusyBox container shell

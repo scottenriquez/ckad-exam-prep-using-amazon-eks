@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: nginx
+        track: canary
+    spec:
+      containers:
+      - name: canary-deployment
+        image: scottenriquez/canary-nginx-app
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
