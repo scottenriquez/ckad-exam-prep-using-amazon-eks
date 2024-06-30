@@ -6,6 +6,7 @@ kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 kubectl apply -f horizontal-pod-autoscaler.yaml
 
+# can also use kubectl top to see metrics
 kubectl describe hpa php-apache
 
 # clean up
