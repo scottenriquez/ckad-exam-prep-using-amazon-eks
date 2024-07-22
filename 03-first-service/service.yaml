@@ -12,4 +12,5 @@ spec:
       # nodePort is used for external access
   # ClusterIP services are only accessible within the cluster
   # NodePort services are a way to expose ClusterIP services externally without using a cloud provider's load balancer
+  # LoadBalancer is covered in the next section
   type: ClusterIP

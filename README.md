@@ -39,7 +39,7 @@ eksctl delete cluster --config-file=cluster.yaml --disable-nodegroup-eviction
 ```
 
 ## 01: First Deployment with `nginx`
-With the cluster created, we can now make our first [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/). We'll start by creating a web server with three replicas using the latest `nginx` image:
+With the cluster created, we can now make our first [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/). We'll start by creating a web server with three replicas using the latest `nginx` image:
 
 ```yaml title='01-first-deployment-with-nginx/deployment.yaml'
 apiVersion: apps/v1
@@ -63,7 +63,7 @@ spec:
         - containerPort: 80
 ```
 
-The following commands leverage the manifest to create three [pods](https://kubernetes.io/docs/concepts/workloads/pods/) and inspect them:
+The following commands leverage the manifest to create three [Pods](https://kubernetes.io/docs/concepts/workloads/pods/) and inspect them:
 ```shell title = '01-first-deployment-with-nginx/commands.sh'
 # assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f ./ 
@@ -73,8 +73,8 @@ kubectl get pods -o wide
 kubectl delete -f ./ 
 ```
 
-## Pod Communication over IP
-The deployment in this example is identical to the previous: a web server with three replicas. Use the following commands to explore how IP addressing works for pods:
+## 02: Pod Communication over IP
+The Deployment in this example is identical to the previous: a web server with three replicas. Use the following commands to explore how IP addressing works for Pods:
 
 ```shell title = '02-pod-communication-over-ip/commands.sh'
 # assumes cluster created from 00-eksctl-configuration first
@@ -93,4 +93,44 @@ cat index.html
 exit
 # clean up
 kubectl delete -f ./ 
+```
+
+## 03: First Service
+Since each Pod has a separate IP address that can change, we can use a [Service](https://kubernetes.io/docs/concepts/services-networking/service/) to keep track of the Pod's IP addresses on our behalf. This abstraction allows us to group Pods via a [selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) and reference them via a single Service. In the Service manifest and leveraging the same Deployment as before, we specify how to select which Pods to target, what port to expose, and the type of Service:
+
+```yaml title='03-first-service/service.yaml'
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    name: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      # nodePort is used for external access
+  # ClusterIP services are only accessible within the cluster
+  # NodePort services are a way to expose ClusterIP services externally without using a cloud provider's load balancer
+  # LoadBalancer is covered in the next section
+  type: ClusterIP
+```
+
+Using the Service, we have a single interface to the three `nginx` replicas. We can also use the Service name instead of its IP address.
+
+```shell title='03-first-service'
+# assumes cluster created from 00-eksctl-configuration first
+kubectl apply -f ./
+# 10.100.120.203 is the service IP address
+kubectl describe service nginx-service
+# entering BusyBox container shell
+kubectl run -it --rm --restart=Never busybox --image=busybox sh
+# can also use the IP address instead
+wget nginx-service
+cat index.html
+# returning to default shell
+exit
+# clean up
+kubectl delete -f ./
 ```
