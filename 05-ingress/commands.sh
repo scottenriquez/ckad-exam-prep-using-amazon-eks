@@ -23,16 +23,9 @@ sed -i.bak -e 's|your-cluster-name|learning-kubernetes|' ./v2_7_2_full.yaml
 kubectl apply -f v2_7_2_full.yaml
 rm v2_7_2_full.yaml* 
 kubectl get deployment -n kube-system aws-load-balancer-controller
-
 # apply maniftests
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
-kubectl apply -f ingress.yaml
-
+kubectl apply -f ./ 
 # gets address (e.g, http://k8s-default-ingress-08daebdfec-204015293.us-west-2.elb.amazonaws.com/) that can be opened in a web browser
 kubectl describe ingress
-
 # clean up
-kubectl delete -f ingress.yaml
-kubectl delete -f service.yaml
-kubectl delete -f deployment.yaml
+kubectl delete -f ./

@@ -135,7 +135,7 @@ exit
 kubectl delete -f ./
 ```
 
-## 04: AWS Load Balancers
+## 04: Elastic Load Balancers for Kubernetes Services
 A significant benefit of Kubernetes is that it can create and manage resources in AWS on our behalf. Using the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/), we can specify [annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/guide/service/annotations/) to create a Service of type `LoadBalancer` that leverages an Elastic Load Balancer. Using the same Deployment from the past two sections, this manifest illustrates how to leverage a Network Load Balancer for the Service:
 
 ```yaml title='04-load-balancer/load-balancer.yaml'
@@ -177,4 +177,107 @@ exit
 # this command ensures that the load balancer is deleted
 # be sure to run before destroying the cluster
 kubectl delete -f ./
+```
+
+## 05: Ingress
+Services of type `ClusterIP` only support internal cluster networking. The `NodePort` configuration allows for external communication by exposing the same port on every node (i.e., EC2 instances). However, this introduces a different challenge because the consumer must know the nodes' IP addresses (and nodes are often transient). The `LoadBalancer` configuration has a 1:1 relationship with the service. If you have numerous services, the cost of load balancers may not be feasible. Ingress alleviates some of these challenges by providing a single external interface over HTTP or HTTPS with support for path-based routing. Leveraging the `nginx` example one last time, we can create an Ingress that exposes a Service with the `NodePort` configuration via an Application Load Balancer.
+
+```yaml title='05-ingress/ingress.yaml'
+apiVersion: networking.k8s.io/v1
+kind: Ingress  
+metadata:
+  name: ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-service
+                port: 
+                  number: 80
+```
+
+The following commands install the AWS Load Balancer Controller, configure required IAM permissions, and deploy the Ingress. Be sure to set the `$AWS_ACCOUNT_ID` environment variable first.
+
+```shell title='05-ingress/commands.sh'
+# assumes cluster created from 00-eksctl-configuration first
+# install AWS Load Balancer Controller
+# https://docs.aws.amazon.com/eks/latest/userguide/lbc-manifest.html
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+rm iam_policy.json
+eksctl utils associate-iam-oidc-provider --region=us-west-2 --cluster=learning-kubernetes --approve
+eksctl create iamserviceaccount \
+  --cluster=learning-kubernetes \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --role-name AmazonEKSLoadBalancerControllerRole \
+  --attach-policy-arn=arn:aws:iam::$AWS_ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+kubectl apply \
+    --validate=false \
+    -f https://github.com/jetstack/cert-manager/releases/download/v1.13.5/cert-manager.yaml
+curl -Lo v2_7_2_full.yaml https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.2/v2_7_2_full.yaml
+sed -i.bak -e '596,604d' ./v2_7_2_full.yaml
+sed -i.bak -e 's|your-cluster-name|learning-kubernetes|' ./v2_7_2_full.yaml
+kubectl apply -f v2_7_2_full.yaml
+rm v2_7_2_full.yaml* 
+kubectl get deployment -n kube-system aws-load-balancer-controller
+# apply maniftests
+kubectl apply -f ./ 
+# gets address (e.g, http://k8s-default-ingress-08daebdfec-204015293.us-west-2.elb.amazonaws.com/) that can be opened in a web browser
+kubectl describe ingress
+# clean up
+kubectl delete -f ./
+```
+
+## 06: Jobs and CronJobs
+
+Jobs are a powerful mechanism that reliably ensures that Pods are completed successfully. CronJobs extend this functionality by supporting a recurring schedule.
+
+```yaml title='06-jobs-and-cronjobs/job.yaml'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi
+spec:
+  template:
+    spec:
+      containers:
+      - name: pi
+        image: perl:5.34.0
+        command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+      restartPolicy: Never
+  backoffLimit: 4
+```
+
+```yaml title='06-jobs-and-cronjobs/cronjob.yaml'
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello
+spec:
+  # runs every minute
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox:1.28
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+          restartPolicy: OnFailure
 ```
