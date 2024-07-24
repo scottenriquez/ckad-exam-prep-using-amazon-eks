@@ -134,3 +134,47 @@ exit
 # clean up
 kubectl delete -f ./
 ```
+
+## 04: AWS Load Balancers
+A significant benefit of Kubernetes is that it can create and manage resources in AWS on our behalf. Using the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/), we can specify [annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/guide/service/annotations/) to create a Service of type `LoadBalancer` that leverages an Elastic Load Balancer. Using the same Deployment from the past two sections, this manifest illustrates how to leverage a Network Load Balancer for the Service:
+
+```yaml title='04-load-balancer/load-balancer.yaml'
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-load-balancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    # by default, a Classic Load Balancer is created
+    # https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html
+    # this annotation creates a Network Load Balancer
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  selector:
+    name: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: "192.0.2.127" 
+```
+
+The following commands deploy the `LoadBalancer` service:
+```shell title='04-load-balancer/commands.sh'
+# assumes cluster created from 00-eksctl-configuration first
+kubectl apply -f ./ 
+# entering BusyBox container shell
+kubectl run -it --rm --restart=Never busybox --image=busybox sh
+wget nginx-load-balancer
+cat index.html
+# returning to default shell
+exit
+# clean up
+# this command ensures that the load balancer is deleted
+# be sure to run before destroying the cluster
+kubectl delete -f ./
+```
