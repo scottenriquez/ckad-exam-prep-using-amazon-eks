@@ -9,14 +9,12 @@ export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output te
 export ARM_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-arm64/recommended/image_id --query Parameter.Value --output text)"
 export AMD_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2/recommended/image_id --query Parameter.Value --output text)"
 export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-gpu/recommended/image_id --query Parameter.Value --output text)"
-
 # deploy resources to support Karpenter
 aws cloudformation deploy \
   --stack-name "Karpenter-${CLUSTER_NAME}" \
   --template-file karpenter-support-resources-cfn.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides "ClusterName=${CLUSTER_NAME}"
-
 # generate cluster file and deploy
 <<EOF > cluster.yaml
 ---
@@ -56,11 +54,9 @@ managedNodeGroups:
   maxSize: 5
 EOF
 eksctl create cluster -f cluster.yaml
-
 # set additional environment variables
 export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name ${CLUSTER_NAME} --query "cluster.endpoint" --output text)"
 export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
-
 # install Karpenter
 helm registry logout public.ecr.aws
 helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "${KARPENTER_VERSION}" --namespace "${KARPENTER_NAMESPACE}" --create-namespace \
@@ -72,7 +68,6 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --vers
   --set controller.resources.limits.cpu=1 \
   --set controller.resources.limits.memory=1Gi \
   --wait
-
 # create NodePool
 <<EOF > node-pool.yaml
 apiVersion: karpenter.sh/v1beta1
@@ -126,17 +121,13 @@ spec:
     - id: "${AMD_AMI_ID}"
 EOF
 kubectl apply -f node-pool.yaml
-
 # deploy pods and scale
 kubectl apply -f deployment.yaml
 kubectl scale deployment inflate --replicas 5
-
 # monitor Karpenter events
 kubectl logs -f -n "${KARPENTER_NAMESPACE}" -l app.kubernetes.io/name=karpenter -c controller
-
 # scale down
 kubectl delete deployment inflate
-
 # clean up
 helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
 aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"

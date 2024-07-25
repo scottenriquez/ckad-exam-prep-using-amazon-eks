@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: nginx
+  template:
+    metadata:
+      labels:
+        name: nginx
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          # estimated resources for container to run optimally
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # kills the container if threshold is crossed
+          limits:
+            cpu: 200m
+            memory: 256Mi

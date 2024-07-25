@@ -240,7 +240,6 @@ kubectl delete -f ./
 ```
 
 ## 06: Jobs and CronJobs
-
 Jobs are a powerful mechanism that reliably ensures that Pods are completed successfully. CronJobs extend this functionality by supporting a recurring schedule.
 
 ```yaml title='06-jobs-and-cronjobs/job.yaml'
@@ -280,4 +279,226 @@ spec:
             - -c
             - date; echo Hello from the Kubernetes cluster
           restartPolicy: OnFailure
+```
+
+## 07: Metrics Server and Pod Autoscaling
+[Metrics Server](https://github.com/kubernetes-sigs/metrics-server) provides container-level resource metrics for autoscaling within Kubernetes. It is not installed by default and is meant only for autoscaling purposes. There are [other options](autoscaler), such as Container Insights, Prometheus, and Grafana, for more accurate resource usage metrics (covered later in this post). With Metrics Server installed, a [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) resource can be configured with values such as target metric, minimum replicas, maximum replicas, etc.
+
+```yaml title='07-metrics-server-and-pod-autoscaling/horizontal-pod-autoscaler.yaml'
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: php-apache
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: php-apache
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+status:
+  observedGeneration: 1
+  currentReplicas: 1
+  desiredReplicas: 1
+  currentMetrics:
+  - type: Resource
+    resource:
+      name: cpu
+      current:
+        averageUtilization: 0
+        averageValue: 0
+```
+
+HorizontalPodAutoscalers create and destroy Pods based on metric usage. On the other hand, [vertical autoscaling](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler) rightsizes the resource limits (covered in the next section) for Pods.
+
+## 08: Resource Management
+When creating a Pod, you can optionally specify an estimate for the number of resources a container needs (e.g., CPU and RAM). This baseline estimate should be specified in the `requests` parameter. The `limits` parameter specifies the threshold for which a container should be terminated to prevent starvation of other processes. Limits also help with cluster capacity planning (e.g., EKS node groups). Below is the `nginx` Deployment from earlier with resource management applied:
+
+```yaml title='08-resource-management/deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: nginx
+  template:
+    metadata:
+      labels:
+        name: nginx
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          # estimated resources for container to run optimally
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # kills the container if threshold is crossed
+          limits:
+            cpu: 200m
+            memory: 256Mi
+```
+
+## 09: Karpenter
+In the previous two sections, we covered how additional Pods are created (i.e., horizontal scaling) and how resources (e.g., CPU and RAM) are requested and limited in Kubernetes. The next topic is managing the underlying compute when additional infrastructure is required. There are two primary options for scaling compute using EKS: Cluster Autoscaler and Karpenter. On AWS, Cluster Autoscaler leverages EC2 Auto Scaling Groups (ASGs) to manage node groups. Cluster Autoscaler typically runs as a Deployment in the cluster. Karpenter does not leverage ASGs, allowing for the ability to select from a wide array of instance types that match the exact requirements of the additional containers. Karpenter also allows for easy adoption of Spot for further cost savings on top of better matching the workload to compute resources. The cluster defined in `00-eksctl-configuration` uses an unmanaged node group and does not leverage Cluster Autoscaler or Karpenter. To demonstrate how to leverage Karpenter, we'll need a different cluster configuration file. We can dynamically generate it like so:
+
+```shell title='09-karpenter/commands.sh'
+# set environment variables
+export KARPENTER_NAMESPACE=karpenter
+export KARPENTER_VERSION=v0.32.10
+export K8S_VERSION=1.28
+export AWS_PARTITION="aws"
+export CLUSTER_NAME="${USER}-karpenter-demo"
+export AWS_DEFAULT_REGION="us-west-2"
+export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+export ARM_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-arm64/recommended/image_id --query Parameter.Value --output text)"
+export AMD_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2/recommended/image_id --query Parameter.Value --output text)"
+export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-gpu/recommended/image_id --query Parameter.Value --output text)"
+# deploy resources to support Karpenter
+aws cloudformation deploy \
+  --stack-name "Karpenter-${CLUSTER_NAME}" \
+  --template-file karpenter-support-resources-cfn.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides "ClusterName=${CLUSTER_NAME}"
+# generate cluster file and deploy
+<<EOF > cluster.yaml
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ${CLUSTER_NAME}
+  region: ${AWS_DEFAULT_REGION}
+  version: "${K8S_VERSION}"
+  tags:
+    karpenter.sh/discovery: ${CLUSTER_NAME}
+
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: karpenter
+      namespace: "${KARPENTER_NAMESPACE}"
+    roleName: ${CLUSTER_NAME}-karpenter
+    attachPolicyARNs:
+    - arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerPolicy-${CLUSTER_NAME}
+    roleOnly: true
+
+iamIdentityMappings:
+- arn: "arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/KarpenterNodeRole-${CLUSTER_NAME}"
+  username: system:node:{{EC2PrivateDNSName}}
+  groups:
+  - system:bootstrappers
+  - system:nodes
+
+managedNodeGroups:
+- instanceType: t3.medium
+  amiFamily: AmazonLinux2
+  name: ${CLUSTER_NAME}-ng
+  desiredCapacity: 2
+  minSize: 2
+  maxSize: 5
+EOF
+eksctl create cluster -f cluster.yaml
+```
+
+Next, we install Karpenter on the EKS cluster:
+
+```shell title='09-karpenter/commands.sh'
+# set additional environment variables
+export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name ${CLUSTER_NAME} --query "cluster.endpoint" --output text)"
+export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
+# install Karpenter
+helm registry logout public.ecr.aws
+helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "${KARPENTER_VERSION}" --namespace "${KARPENTER_NAMESPACE}" --create-namespace \
+  --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${KARPENTER_IAM_ROLE_ARN}" \
+  --set "settings.clusterName=${CLUSTER_NAME}" \
+  --set "settings.interruptionQueue=${CLUSTER_NAME}" \
+  --set controller.resources.requests.cpu=1 \
+  --set controller.resources.requests.memory=1Gi \
+  --set controller.resources.limits.cpu=1 \
+  --set controller.resources.limits.memory=1Gi \
+  --wait
+```
+
+Finally, we create a node pool that specifies what compute our workload can support. In this case, Karpenter can provision EC2 Spot instances from the `C`, `M`, or `R` family from any generation greater than two running Linux on AMD64 architecture.
+
+```shell title='09-karpenter/commands.sh'
+# create NodePool
+<<EOF > node-pool.yaml
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["2"]
+      nodeClassRef:
+        apiVersion: karpenter.k8s.aws/v1beta1
+        kind: EC2NodeClass
+        name: default
+  limits:
+    cpu: 1000
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    expireAfter: 720h
+---
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  amiSelectorTerms:
+    - id: "${ARM_AMI_ID}"
+    - id: "${AMD_AMI_ID}"
+EOF
+kubectl apply -f node-pool.yaml
+```
+
+With the new EKS cluster deployed and Karpenter installed, we can add new Pods and see new EC2 instances created on our behalf.
+
+```shell title='09-karpenter/commands.sh'
+# deploy pods and scale
+kubectl apply -f deployment.yaml
+kubectl scale deployment inflate --replicas 5
+# monitor Karpenter events
+kubectl logs -f -n "${KARPENTER_NAMESPACE}" -l app.kubernetes.io/name=karpenter -c controller
+# scale down
+kubectl delete deployment inflate
 ```
