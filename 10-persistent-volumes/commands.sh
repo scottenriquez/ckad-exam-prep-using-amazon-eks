@@ -14,20 +14,15 @@ eksctl create addon --name aws-ebs-csi-driver --cluster learning-kubernetes --se
 # wait until add-on is installed
 # create gp3 storage class
 kubectl apply -f storage-class.yaml
-
 # dynamic volume provisioning
 kubectl apply -f persistent-volume-claim.yaml
 kubectl apply -f pod.yaml
-
 # entering pod shell
 kubectl exec -it app -- /bin/sh
 cd data/
 cat out.txt
 # returning to default shell
 exit
-
 # clean up
-kubectl delete -f storage-class.yaml
 # deletes the EBS volume
-kubectl delete -f persistent-volume-claim.yaml
-kubectl delete -f pod.yaml
+kubectl delete -f ./ 

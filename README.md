@@ -514,4 +514,144 @@ You can monitor the Karpenter logs via the command below. Less than a minute aft
 kubectl logs -f -n "${KARPENTER_NAMESPACE}" -l app.kubernetes.io/name=karpenter -c controller
 # scale down
 kubectl delete deployment inflate
+# clean up
+helm uninstall karpenter --namespace "${KARPENTER_NAMESPACE}"
+aws cloudformation delete-stack --stack-name "Karpenter-${CLUSTER_NAME}"
+aws ec2 describe-launch-templates --filters Name=tag:karpenter.k8s.aws/cluster,Values=${CLUSTER_NAME} |
+    jq -r ".LaunchTemplates[].LaunchTemplateName" |
+    xargs -I{} aws ec2 delete-launch-template --launch-template-name {}
+eksctl delete cluster --name "${CLUSTER_NAME}"
 ```
+
+## 10: Persistent Volumes Using EBS 
+Storage in Kubernetes can be classified as either ephemeral or persistent. Without leveraging [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) (PVs), containers read and write data to the volume attached to the node they run on. Ephemeral storage is temporary and tied to the Pod's lifecycle. If requirements dictate that the storage persists or be shared across Pods, there are some prerequisites before EBS can be leveraged for PVs.
+
+The first step is installing the [AWS EBS Container Storage Interface (CSI) driver](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html). The next step is to define a [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) (SC) that includes configuration such as volume type (e.g., `gp3`), encryption, etc. The final step is to reference a [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#dynamic) (PVC) when deploying a Pod in order to dynamically provision the EBS volume and attach to the containers.
+
+In practice, this goes as follows:
+
+```shell title='10-persistent-volumes/commands.sh'
+# assumes cluster created from 00-eksctl-configuration first
+# create an OIDC provider
+eksctl utils associate-iam-oidc-provider --cluster learning-kubernetes --approve
+# install aws-ebs-csi-driver
+eksctl create iamserviceaccount \
+    --name ebs-csi-controller-sa \
+    --namespace kube-system \
+    --cluster learning-kubernetes \
+    --role-name AmazonEKS_EBS_CSI_DriverRole \
+    --role-only \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+    --approve
+eksctl create addon --name aws-ebs-csi-driver --cluster learning-kubernetes --service-account-role-arn arn:aws:iam::$AWS_ACCOUNT_ID:role/AmazonEKS_EBS_CSI_DriverRole --force
+```
+
+Once completed, the add-on will appear in the AWS Console.
+
+![EBS CSI](./10-persistent-volumes/eks-ebs-csi-add-on.png)
+
+Next, define the SC and PVC:
+
+```yaml title='10-persistent-volumes/storage-class.yaml'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  csi.storage.k8s.io/fstype: xfs
+  type: gp3
+  encrypted: "true"
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: topology.ebs.csi.aws.com/zone
+        values:
+          - us-west-2a
+          - us-west-2b
+          - us-west-2c
+```
+
+```yaml title='10-persistent-volumes/persistent-volume-claim.yaml'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-sc
+  resources:
+    requests:
+      storage: 4Gi
+```
+
+Finally, attach the PVC to the Pod and deploy:
+
+```yaml title='10-persistent-volumes/persistent-volume-claim.yaml'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+spec:
+  containers:
+    - name: app
+      image: centos
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo $(date -u) >> /data/out.txt; sleep 5; done"]
+      volumeMounts:
+        - name: persistent-storage
+          mountPath: /data
+  volumes:
+    - name: persistent-storage
+      persistentVolumeClaim:
+        claimName: ebs-claim
+```
+
+As soon as the Pod is created, a `gp3` volume is provisioned.
+
+![PVC](./10-persistent-volumes/pvc.png)
+
+## 11: Prometheus and Grafana
+The following several sections focus on observability. [Prometheus](https://prometheus.io/) is an open-source monitoring system commonly leveraged in Kubernetes clusters. As a de facto standard, it's widely used with [Grafana](https://grafana.com/) to provide cluster monitoring. Using Helm we can quickly deploy both of these tools to our cluster.
+
+```shell
+# assumes cluster created from 00-eksctl-configuration first
+# install Helm on local machine
+# https://helm.sh/docs/intro/install/
+brew install helm
+# install Helm charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install v60-0-1 prometheus-community/kube-prometheus-stack --version 60.0.1
+# use http://localhost:9090 to access Prometheus
+kubectl port-forward svc/prometheus-operated 9090
+# get Grafana password for admin
+kubectl get secret v60-0-1-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+# use http://localhost:3000 to access Grafana
+kubectl port-forward svc/v60-0-1-grafana 3000:80
+```
+
+Using port forwarding, we can quickly access Prometheus:
+
+![Prometheus](./11-prometheus-and-grafana/prometheus.png)
+
+And Grafana:
+
+![Grafana](./11-prometheus-and-grafana/grafana.png)
+
+## 12: Container Insights
+Prometheus and Grafana are both open-source and cloud-agnostic. AWS has a native infrastructure monitoring offering called Container Insights that integrates cluster data with the AWS Console via CloudWatch with two simple commands:
+
+```shell title='12-container-insights/commands.sh'
+# assumes cluster created from 00-eksctl-configuration first
+# configure permissions
+# change role to the one created by eksctl
+aws iam attach-role-policy \
+--role-name $EKSCTL_NODEGROUP_ROLE_NAME \
+--policy-arn arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+# wait until add-on is installed and give time for data to propagate
+aws eks create-addon --cluster-name learning-kubernetes --addon-name amazon-cloudwatch-observability
+```
+
+![Container Insights](./12-container-insights/container-insights.png)
