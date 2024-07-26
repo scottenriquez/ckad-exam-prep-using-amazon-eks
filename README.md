@@ -497,6 +497,19 @@ With the new EKS cluster deployed and Karpenter installed, we can add new Pods a
 # deploy pods and scale
 kubectl apply -f deployment.yaml
 kubectl scale deployment inflate --replicas 5
+```
+
+In less than a minute after the `inflate` command, a new EC2 instance is created that matches the node pool specifications. In my case, a `c5n.2xlarge` server was deployed.
+
+![Karpenter instances](./09-karpenter/karpenter-instances.png)
+
+As expected, the node pool leverages Spot instances.
+
+![Karpenter instances](./09-karpenter/karpenter-spot-instance.png)
+
+You can monitor the Karpenter logs via the command below. Less than a minute after deleting the Deployment, the `c5n.2xlarge` instance was terminated. Be sure to follow the cleanup steps when you have completed them to ensure no resources become orphaned.
+
+```shell title='09-karpenter/commands.sh'
 # monitor Karpenter events
 kubectl logs -f -n "${KARPENTER_NAMESPACE}" -l app.kubernetes.io/name=karpenter -c controller
 # scale down

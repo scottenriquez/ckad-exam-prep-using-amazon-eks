@@ -11,7 +11,7 @@ export AMD_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami
 export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-gpu/recommended/image_id --query Parameter.Value --output text)"
 # deploy resources to support Karpenter
 aws cloudformation deploy \
-  --stack-name "Karpenter-${CLUSTER_NAME}" \
+  --stack-name "karpenter-${CLUSTER_NAME}-support" \
   --template-file karpenter-support-resources-cfn.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides "ClusterName=${CLUSTER_NAME}"
@@ -58,7 +58,7 @@ eksctl create cluster -f cluster.yaml
 export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name ${CLUSTER_NAME} --query "cluster.endpoint" --output text)"
 export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
 # install Karpenter
-helm registry logout public.ecr.aws
+docker logout public.ecr.aws
 helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "${KARPENTER_VERSION}" --namespace "${KARPENTER_NAMESPACE}" --create-namespace \
   --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${KARPENTER_IAM_ROLE_ARN}" \
   --set "settings.clusterName=${CLUSTER_NAME}" \
