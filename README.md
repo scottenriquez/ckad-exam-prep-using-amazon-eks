@@ -655,3 +655,83 @@ aws eks create-addon --cluster-name learning-kubernetes --addon-name amazon-clou
 ```
 
 ![Container Insights](./12-container-insights/container-insights.png)
+
+## 13: EKS Split Cost Allocation Data in Cost and Usage Reports
+The [AWS Cost and Usage Reports](https://docs.aws.amazon.com/cur/latest/userguide/what-is-cur.html) (CUR) are the most comprehensive and detailed billing data available to customers. It offers [a well-defined schema](https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-cur2.html) that we can use to write [SQL queries against via Athena](https://catalog.workshops.aws/cur-query-library/en-US). CUR data offers resource-level time series data for in-depth AWS cost and usage analysis. In April 2024, AWS released [EKS split cost allocation data for CUR](https://docs.aws.amazon.com/cur/latest/userguide/split-cost-allocation-data.html). Previously, the lowest resource level available was an EC2 instance. This feature adds billing data container-level resources in EKS (e.g., Pods).
+
+Create a new CUR via Data Exports in the Billing and Cost Management Console if required. If you have an existing CUR without split cost allocation data, you can modify the report content configuration to add this.
+
+![Data Exports](./13-cur-split-cost-allocation/data-exports-split-cost.png)
+
+With this configured, we can use the following [SQL query in Athena](https://docs.aws.amazon.com/cur/latest/userguide/cur-query-athena.html) to gather cost and usage data for the EKS cluster resources:
+
+```sql
+SELECT 
+  DATE_FORMAT(
+    DATE_TRUNC(
+      'day', "line_item_usage_start_date"
+    ), 
+    '%Y-%m-%d'
+  ) AS "date",
+  "line_item_resource_id" AS "resource_id",
+  ARBITRARY(CONCAT(
+    REPLACE(
+      SPLIT_PART(
+        "line_item_resource_id", 
+        '/', 1
+      ), 
+      'pod', 
+      'cluster'
+    ), 
+    '/', 
+    SPLIT_PART(
+      "line_item_resource_id", 
+      '/', 2
+    )
+  )) AS "cluster_arn", 
+  ARBITRARY(SPLIT_PART(
+    "line_item_resource_id", 
+    '/', 2
+  )) AS "cluster_name", 
+  ARBITRARY("split_line_item_parent_resource_id") AS "node_instance_id", 
+  ARBITRARY("resource_tags_aws_eks_node") AS "node_name", 
+  ARBITRARY(SPLIT_PART(
+    "line_item_resource_id", 
+    '/', 3
+  )) AS "namespace",
+  ARBITRARY("resource_tags_aws_eks_workload_type") AS "controller_kind", 
+  ARBITRARY("resource_tags_aws_eks_workload_name") AS "controller_name", 
+  ARBITRARY("resource_tags_aws_eks_deployment") AS "deployment",
+  ARBITRARY(SPLIT_PART(
+    "line_item_resource_id", 
+    '/', 4
+  )) AS "pod_name", 
+  ARBITRARY(SPLIT_PART(
+    "line_item_resource_id", 
+    '/', 5
+  )) AS "pod_uid", 
+  SUM(
+    CASE WHEN "line_item_usage_type" LIKE '%EKS-EC2-vCPU-Hours' THEN "split_line_item_split_cost" + "split_line_item_unused_cost" ELSE 0.0 END
+  ) AS "cpu_cost", 
+  SUM(
+    CASE WHEN "line_item_usage_type" LIKE '%EKS-EC2-GB-Hours' THEN "split_line_item_split_cost" + "split_line_item_unused_cost" ELSE 0.0 END
+  ) AS "ram_cost", 
+  SUM(
+    "split_line_item_split_cost" + "split_line_item_unused_cost"
+  ) AS "total_cost" 
+FROM 
+  cur
+WHERE 
+  "line_item_operation" = 'EKSPod-EC2' 
+  AND CURRENT_DATE - INTERVAL '7' DAY <= "line_item_usage_start_date" 
+GROUP BY 
+  1, 
+  2
+ORDER BY 
+  "cluster_arn", 
+  "date" DESC
+```
+
+![Athena](./13-cur-split-cost-allocation/cur-split-cost-allocation.png)
+
+AWS also offers [open-source QuickSight dashboards](https://d1s0yx3p3y3rah.cloudfront.net/anonymous-embed?dashboard=containers-cost-allocation&sheet=default) that provide a visualization of this data.
