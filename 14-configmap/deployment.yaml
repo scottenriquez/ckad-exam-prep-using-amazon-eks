@@ -15,6 +15,7 @@ spec:
       containers:
         - name: config-api-container
           # deployed via CDK
+          # replace with your image
           image: 196736724465.dkr.ecr.us-west-2.amazonaws.com/cdk-hnb659fds-container-assets-196736724465-us-west-2:afbbd8d7b43a7f833eb07c26a13d5344fa7656c136b1e27b545490fa58dad983
           ports:
             - containerPort: 8000

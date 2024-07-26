@@ -656,6 +656,8 @@ aws eks create-addon --cluster-name learning-kubernetes --addon-name amazon-clou
 
 ![Container Insights](./12-container-insights/container-insights.png)
 
+It's worth noting that Container Insights can also [ingest Prometheus metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights-Prometheus.html).
+
 ## 13: EKS Split Cost Allocation Data in Cost and Usage Reports
 The [AWS Cost and Usage Reports](https://docs.aws.amazon.com/cur/latest/userguide/what-is-cur.html) (CUR) are the most comprehensive and detailed billing data available to customers. It offers [a well-defined schema](https://docs.aws.amazon.com/cur/latest/userguide/table-dictionary-cur2.html) that we can use to write [SQL queries against via Athena](https://catalog.workshops.aws/cur-query-library/en-US). CUR data offers resource-level time series data for in-depth AWS cost and usage analysis. In April 2024, AWS released [EKS split cost allocation data for CUR](https://docs.aws.amazon.com/cur/latest/userguide/split-cost-allocation-data.html). Previously, the lowest resource level available was an EC2 instance. This feature adds billing data container-level resources in EKS (e.g., Pods).
 
@@ -735,3 +737,97 @@ ORDER BY
 ![Athena](./13-cur-split-cost-allocation/cur-split-cost-allocation.png)
 
 AWS also offers [open-source QuickSight dashboards](https://d1s0yx3p3y3rah.cloudfront.net/anonymous-embed?dashboard=containers-cost-allocation&sheet=default) that provide a visualization of this data.
+
+## 14: ConfigMap
+The following two sections focus on configuration management. A [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) is a Kubernetes construct that stores non-sensitive key-value pairs (e.g., URLs, feature flags, etc.). There are several ways to consume ConfigMaps, but we'll set an environment variable for a container below. First, I created a TypeScript Cloud Development Kit (CDK) application to deploy a FastAPI container to Elastic Container Repository (ECR). The API is simple:
+
+```python title='14-configmap/api-cdk/container/app/main.py'
+api = fastapi.FastAPI()
+@api.get('/api/config')
+def config():
+    return {
+        'message': os.getenv('CONFIG_MESSAGE', 'Message not set')
+    }
+```
+
+We publish the container to ECR via CDK:
+
+```typescript title='14-configmap/api-cdk/lib/api-cdk-stack.ts'
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
+
+export class ApiCdkStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+    const dockerImageAsset = new DockerImageAsset(this, 'MyDockerImage', {
+      directory: './container/'
+    });
+  }
+}
+```
+
+Next, we define the ConfigMap:
+
+```yaml title='14-configmap/configmap.yaml'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-configmap
+data:
+  config-message: "Hello from ConfigMap!"
+```
+
+Finally, we reference the ConfigMap in the Deployment:
+
+```yaml title='14-configmap/deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: config-api
+  template:
+    metadata:
+      labels:
+        name: config-api
+    spec:
+      containers:
+        - name: config-api-container
+          # deployed via CDK
+          # replace with your image
+          image: 196736724465.dkr.ecr.us-west-2.amazonaws.com/cdk-hnb659fds-container-assets-196736724465-us-west-2:afbbd8d7b43a7f833eb07c26a13d5344fa7656c136b1e27b545490fa58dad983
+          ports:
+            - containerPort: 8000
+          env:
+            - name: CONFIG_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: api-configmap
+                  key: config-message
+```
+
+With the API deployed, we can verify that the configuration propagates correctly.
+
+```shell title='14-configmap/commands.sh'
+# entering BusyBox container shell
+kubectl run -it --rm --restart=Never busybox --image=busybox sh
+wget config-api-service:80/api/config
+cat config
+```
+
+## 15: Secrets
+[Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) are very similar to ConfigMaps except that they are intended for sensitive information. `Opaque` is the default type of Secret for arbitrary user data unless you need to store SSH credentials, TLS certificates, `~/.dockercfg`, etc. For a complete list of types, see the [documentation](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types). Kubernetes Secrets do not encrypt the data on your behalf. That responsibility is on the developer.
+
+```yaml title='15-secrets/secret.yaml'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: busybox-password 
+type: Opaque
+data:
+  password: MWYyZDFlMmU2N2Rm
+```
