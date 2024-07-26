@@ -831,3 +831,91 @@ type: Opaque
 data:
   password: MWYyZDFlMmU2N2Rm
 ```
+
+## 16: Multi-Container Pods
+In the examples so far, Pods and containers had a 1:1 relationship. Two common patterns for multi-container Pods in Kubernetes are init containers and sidecars. To illustrate these patterns, we'll use a Postgres database with a backend that relies on it. Given that the backend container depends on the database, we must ensure that Postgres is available before starting it. To do so, we can use an init container that verifies the ability to connect to the database. All init containers run before the Pod starts. If any init container fails, the Pod fails.
+
+```yaml title='16-multi-container-pods/backend.deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-with-database
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        - name: verify-database-online
+          image: postgres
+          command: [ 'sh', '-c',
+            'until pg_isready -h database-service -p 5432; 
+                do echo waiting for database; sleep 2; done;' ]
+      containers:
+        - name: backend
+          image: nginx
+```
+
+An example of a sidecar container is a GUI called Adminer for the database. The GUI has a lifecycle tightly coupled to the Postgres container (i.e., if we don't need the database anymore, we don't need the GUI). To configure a sidecar, append another container to the Deployment's `spec`:
+
+```yaml title='16-multi-container-pods/database.deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-database
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: database
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: database
+    spec:
+      containers:
+        - name: database
+          image: postgres
+          envFrom:
+            - configMapRef:
+                name: database-access
+          ports:
+            - containerPort: 5432
+        - name: database-admin
+          image: adminer
+          ports:
+            - containerPort: 8080
+```
+
+With the sidecar in place, we can deploy and leverage the GUI to log into our database.
+
+```shell title='16-multi-container-pods/commands.sh'
+# assumes cluster created from 00-eksctl-configuration first
+kubectl apply -f database.configmap.yaml
+kubectl apply -f backend.deployment.yaml
+# check that the primary container is not yet running because the init container has not completed
+# STATUS shows as Init:0/1
+kubectl get pods
+# deploy database and service
+kubectl apply -f database.deployment.yaml
+kubectl apply -f database.service.yaml
+# verify that init container has completed
+# get database pod
+kubectl get pods
+# forward ports
+kubectl port-forward pod/postgres-database-697695b774-xcp9p 9000:8080
+# open Adminer in browser
+# see screenshot for logging in
+wget http://localhost:9000
+# clean up
+kubectl delete -f ./ 
+```
+
+![Adminer](./16-multi-container-pods/adminer.png)
