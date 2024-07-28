@@ -833,7 +833,7 @@ data:
 ```
 
 ## 16: Multi-Container Pods
-In the examples so far, Pods and containers had a 1:1 relationship. Two common patterns for multi-container Pods in Kubernetes are init containers and sidecars. To illustrate these patterns, we'll use a Postgres database with a backend that relies on it. Given that the backend container depends on the database, we must ensure that Postgres is available before starting it. To do so, we can use an init container that verifies the ability to connect to the database. All init containers run before the Pod starts. If any init container fails, the Pod fails.
+In the examples so far, Pods and containers had a 1:1 relationship. Two common patterns for multi-container Pods in Kubernetes are [init containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) and [sidecars](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/). To illustrate these patterns, we'll use a Postgres database with a backend that relies on it. Given that the backend container depends on the database, we must ensure that Postgres is available before starting it. To do so, we can use an init container that verifies the ability to connect to the database. All init containers run before the Pod starts. If any init container fails, the Pod fails.
 
 ```yaml title='16-multi-container-pods/backend.deployment.yaml'
 apiVersion: apps/v1
@@ -919,3 +919,103 @@ kubectl delete -f ./
 ```
 
 ![Adminer](./16-multi-container-pods/adminer.png)
+
+## 17: Deployment Types
+The four most common deployment strategies are rolling, blue/green, canary, and recreate. Rolling updates involve deploying new Pods in a batch while decreasing old Pods at the same rate. This is the default behavior in Kubernetes. Blue/green deployments provision an entirely new environment (green) parallel to the existing one (blue), then perform a Service selector cutover when approved for production release. Canary deployments allow developers to test a new deployment with a subset of users in parallel with the current production release. Recreating an environment involves destroying the old environment and then provisioning a new one, which may result in downtime.
+
+For a blue/green release, let's start by creating the blue and green deployments. The following YAML for the blue deployment is nearly identical to the green. The only difference is the Docker image used.
+
+```yaml title='17-deployment-types/blue-green-deployment/blue.deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+      role: blue
+  template:
+    metadata:
+      labels:
+        app: nginx
+        role: blue
+    spec:
+      # the green deployment uses the green Docker image
+      containers:
+      - name: blue
+        image: scottenriquez/blue-nginx-app
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+```
+
+By default, the production Service should point to the blue environment.
+
+```yaml title='17-deployment-types/blue-green-deployment/production.service.yaml'
+kind: Service
+apiVersion: v1
+metadata:
+  name: production-service
+  labels:
+    env: production
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx
+  ports:
+    - port: 9000
+      targetPort: 80
+```
+
+To perform the release, change the selector on the Production service. Then verify that the web application contains the green release instead of the blue.
+
+```shell
+# perform cutover
+# can also be done via manifest
+kubectl set selector service production-service 'role=green'
+# entering BusyBox container shell
+kubectl run -it --rm --restart=Never busybox --image=busybox sh
+# verify green in HTML
+wget production-service:9000
+cat index.html
+```
+
+Switching gears to a canary release, we start by creating stable and canary Deployments. In this code example, the two web applications are nearly identical, except that the canary has a yellow message in a `<h1>` tag. We control the percentage of canary Pods by splitting the number of canary and stable replicas. For this example, there is a 20% chance of using a canary Pod because there is one canary replica and four stable replicas.
+
+```yaml title='17-deployment-types/canary-deployment/canary.deployment.yaml'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: nginx
+        track: canary
+    spec:
+      containers:
+      - name: canary-deployment
+        image: scottenriquez/canary-nginx-app
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+```
+
+With this approach, traffic will be directed to the canary pod on average 20% of the time. It may take several requests to the Service, but a canary webpage will eventually be returned.
+
+![Canary](./17-deployment-types/canary-deployment/canary.png)
