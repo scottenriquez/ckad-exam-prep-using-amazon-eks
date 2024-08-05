@@ -1,7 +1,22 @@
-# Certified Kubernetes Application Developer (CKAD) Exam Prep Using Amazon EKS 
+# Preparing for the Certified Kubernetes Application Developer (CKAD) Exam Using Amazon EKS
 
-## Status
-Work in progress. Full `README` coming soon.
+## Motivation
+I've taken and passed more than a dozen technology certification exams spanning AWS, Azure, HashiCorp, and more. While I've used Kubernetes professionally in a few capacities (particularly in customer engagements while working at AWS), I wanted to cement my knowledge and improve my mastery with a systematic approach. I decided to prepare for the Certified Kubernetes Application Developer (CKAD) exam. This exam is unique in several ways. Namely, it's all hands-on in a lab environment. Azure exams often have a coding, configuration, or CLI command component, but even these are typically multiple-choice questions. The CKAD presents you with a virtual desktop and several Kubernetes clusters, making you tackle 15-20 tasks with a strict two-hour time limit. I put together this repository for preparation for a few reasons:
+
+- I wanted to document all of my hands-on preparation for when I have to recertify in two years
+- I wanted to share my knowledge with others and offer a supplemental guide to a CKAD course
+- Since the CKAD exam focuses on Kubernetes from a cloud-agnostic perspective, I wanted to fill in the gaps in my own knowledge of running Kubernetes in the AWS ecosystem (e.g., Karpenter, Container Insights, etc.)
+- Many courses and guides leverage Microk8s or minikube to run Kubernetes locally, but I wanted to focus on cloud-based infrastructure, especially for things like EBS volumes created via PVCs, ELBs created via a Service, etc.
+
+In summary, this material focuses on hands-on exercises for preparing for the exam and other tools in the cloud-agnostic and AWS ecosystems.
+
+## Materials and Getting Started 
+In addition to this content:
+- I highly recommend the [CKAD courses on PluralSight](https://www.pluralsight.com/paths/certified-kubernetes-application-developer-ckad-2023) for classroom learning 
+- [Killer Shell](https://killer.sh/pricing) is key for practice exams
+- [This GitHub repository](https://github.com/dgkanatsios/CKAD-exercises/blob/main/README.md) contains many useful CLI commands
+
+My preferred approach was to work through the PluralSight course first. After reviewing the classroom material, I designed and worked through the examples below. If you have a foundational knowledge of Kubernetes, skip around to the most useful exercises. Each one is designed to be a standalone experience.
 
 ## 00: `eksctl` Configuration
 `eksctl` is a powerful CLI tool that quickly spins and tears down Kubernetes clusters via Amazon EKS. Nearly all of the exercises below start by leveraging the tool to create a cluster:
@@ -920,12 +935,12 @@ kubectl delete -f ./
 
 ![Adminer](./16-multi-container-pods/adminer.png)
 
-## 17: Deployment Types
+## 17: Deployment Strategies 
 The four most common deployment strategies are rolling, blue/green, canary, and recreate. Rolling updates involve deploying new Pods in a batch while decreasing old Pods at the same rate. This is the default behavior in Kubernetes. Blue/green deployments provision an entirely new environment (green) parallel to the existing one (blue), then perform a Service selector cutover when approved for production release. Canary deployments allow developers to test a new deployment with a subset of users in parallel with the current production release. Recreating an environment involves destroying the old environment and then provisioning a new one, which may result in downtime.
 
 For a blue/green release, let's start by creating the blue and green deployments. The following YAML for the blue deployment is nearly identical to the green. The only difference is the Docker image used.
 
-```yaml title='17-deployment-types/blue-green-deployment/blue.deployment.yaml'
+```yaml title='17-deployment-strategies/blue-green-deployment/blue.deployment.yaml'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -957,7 +972,7 @@ spec:
 
 By default, the production Service should point to the blue environment.
 
-```yaml title='17-deployment-types/blue-green-deployment/production.service.yaml'
+```yaml title='17-deployment-strategies/blue-green-deployment/production.service.yaml'
 kind: Service
 apiVersion: v1
 metadata:
@@ -988,12 +1003,13 @@ cat index.html
 
 Switching gears to a canary release, we start by creating stable and canary Deployments. In this code example, the two web applications are nearly identical, except that the canary has a yellow message in a `<h1>` tag. We control the percentage of canary Pods by splitting the number of canary and stable replicas. For this example, there is a 20% chance of using a canary Pod because there is one canary replica and four stable replicas.
 
-```yaml title='17-deployment-types/canary-deployment/canary.deployment.yaml'
+```yaml title='17-deployment-strategies/canary-deployment/canary.deployment.yaml'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: canary-deployment
 spec:
+  # the stable Deployment has four replicas
   replicas: 1
   selector:
     matchLabels:
@@ -1004,6 +1020,7 @@ spec:
         app: nginx
         track: canary
     spec:
+      # the stable deployment uses the stable Docker image
       containers:
       - name: canary-deployment
         image: scottenriquez/canary-nginx-app
@@ -1018,4 +1035,6 @@ spec:
 
 With this approach, traffic will be directed to the canary pod on average 20% of the time. It may take several requests to the Service, but a canary webpage will eventually be returned.
 
-![Canary](./17-deployment-types/canary-deployment/canary.png)
+![Canary](./17-deployment-strategies/canary-deployment/canary.png)
+
+## 18: Probes
