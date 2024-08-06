@@ -8,7 +8,6 @@ npm install
 cd api-cdk 
 cdk deploy
 cd ../
-# assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f ./ 
 # entering BusyBox container shell
 kubectl run -it --rm --restart=Never busybox --image=busybox sh

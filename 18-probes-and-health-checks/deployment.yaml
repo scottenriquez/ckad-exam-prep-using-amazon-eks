@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe-api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: probe-api
+  template:
+    metadata:
+      labels:
+        name: probe-api
+    spec:
+      containers:
+        - name: probe-api-container
+          # deployed via CDK
+          # replace with your image
+          image: 196736724465.dkr.ecr.us-west-2.amazonaws.com/cdk-hnb659fds-container-assets-196736724465-us-west-2:86b591781a296c7b2980608eeb67e30aaf316c732c92b6a47e536555bce0dc93 
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /api/healthy
+              port: 8000
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 8000

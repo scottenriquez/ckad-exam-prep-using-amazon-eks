@@ -17,7 +17,7 @@ kubectl apply -f storage-class.yaml
 # dynamic volume provisioning
 kubectl apply -f persistent-volume-claim.yaml
 kubectl apply -f pod.yaml
-# entering pod shell
+# entering Pod shell
 kubectl exec -it app -- /bin/sh
 cd data/
 cat out.txt

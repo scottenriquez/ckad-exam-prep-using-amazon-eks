@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reader-pod 
+spec:
+  serviceAccountName: sa-pod-reader
+  containers:
+    - name: reader-container
+      image: alpine:3.12
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      command: ["/bin/sh"]
+      args: ["-c", "sleep 3600"]
