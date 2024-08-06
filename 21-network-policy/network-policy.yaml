@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pod-one-and-two-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      network: allow-pod-one-and-two 
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          network: allow-pod-one-and-two 
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          network: allow-pod-one-and-two 
