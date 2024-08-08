@@ -16,7 +16,7 @@ In addition to this content:
 - [Killer Shell](https://killer.sh/pricing) is key for practice exams
 - [This GitHub repository](https://github.com/dgkanatsios/CKAD-exercises/blob/main/README.md) contains many useful CLI commands
 
-My preferred approach was to work through the PluralSight course first. After reviewing the classroom material, I designed and worked through the examples below. If you have a foundational knowledge of Kubernetes, skip around to the most useful exercises. Each one is designed to be a standalone experience.
+My preferred approach was to work through the PluralSight course first. After reviewing the classroom material, I designed and worked through the examples below. If you have foundational Kubernetes knowledge, skip to the most useful exercises. Each one is designed to be a standalone experience.
 
 ## 00: `eksctl` Configuration
 `eksctl` is a powerful CLI tool that quickly spins and tears down Kubernetes clusters via Amazon EKS. Nearly all of the exercises below start by leveraging the tool to create a cluster:
@@ -1038,3 +1038,54 @@ With this approach, traffic will be directed to the canary pod on average 20% of
 ![Canary](./17-deployment-strategies/canary-deployment/canary.png)
 
 ## 18: Probes
+
+## 23: cdk8s
+The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust provisioning logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (cdk8s). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
+
+```typescript title='23-cdk8s/cluster/main.ts'
+export class MyChart extends Chart {
+  constructor(scope: Construct, id: string, props: ChartProps = { }) {
+    super(scope, id, props);
+    new KubeDeployment(this, 'my-deployment', {
+      spec: {
+        replicas: 3,
+        selector: { matchLabels: { app: 'frontend' } },
+        template: {
+          metadata: { labels: { app: 'frontend'} },
+          spec: {
+            containers: [
+              {
+                name: 'app-container',
+                image: 'nginx:latest',
+                ports: [{ containerPort: 80 }]
+              }
+            ]
+          }
+        }
+      }
+    });
+  }
+}
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-my-deployment-c8e7fb18
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - image: nginx:latest
+          name: app-container
+          ports:
+            - containerPort: 80
+```
