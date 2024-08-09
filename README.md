@@ -1,7 +1,7 @@
 # Preparing for the Certified Kubernetes Application Developer (CKAD) Exam Using Amazon EKS
 
 ## Motivation and Background
-I've taken and passed more than a dozen technology certification exams spanning AWS, Azure, HashiCorp, and more. While I've used Kubernetes professionally in a few capacities (particularly in customer engagements while working at AWS), I wanted to cement my knowledge and improve my mastery with a systematic approach, so I decided to prepare for the Certified Kubernetes Application Developer (CKAD) exam. This exam is unique in several ways. Namely, it's all hands-on in a lab environment. Azure exams often have a coding, configuration, or CLI command component, but even these are typically multiple-choice questions. The CKAD presents you with a virtual desktop and several Kubernetes clusters, making you tackle 15-20 tasks with a strict two-hour time limit. I put together this repository for preparation for a few reasons:
+While I've used Kubernetes professionally in a few capacities (particularly in customer engagements while working at AWS), I wanted to cement my knowledge and increase my mastery with a systematic approach. I decided to prepare for the Certified Kubernetes Application Developer (CKAD) exam. I've taken and passed more than a dozen technology certification exams spanning AWS, Azure, HashiCorp, and more. This exam is unique in several ways. Namely, it's all hands-on in a lab environment. Azure exams often have a coding, configuration, or CLI command component, but even these are typically multiple-choice questions. The CKAD presents you with a virtual desktop and several Kubernetes clusters, making you tackle 15-20 tasks with a strict two-hour time limit. I put together this repository and post for a few reasons:
 
 - I wanted to document all of my hands-on preparation for when I have to recertify in two years
 - I wanted to share my knowledge with others and offer a supplemental guide to a CKAD course
@@ -205,7 +205,7 @@ kubectl delete -f ./
 ```
 
 ## 05: Ingress (CKAD Topic)
-Services of type ClusterIP only support internal cluster networking. The NodePort configuration allows for external communication by exposing the same port on every node (i.e., EC2 instances in our case). However, this introduces a different challenge because the consumer must know the nodes' IP addresses (and nodes are often transient). The LoadBalancer configuration has a 1:1 relationship with the service. If you have numerous services, the cost of load balancers may not be feasible. [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) alleviates some of these challenges by providing a single external interface over HTTP or HTTPS with support for path-based routing. Leveraging the Nginx example one last time, we can create an Ingress that exposes a Service with the NodePort configuration via an Application Load Balancer.
+Services of type ClusterIP only support internal cluster networking. The NodePort configuration allows for external communication by exposing the same port on every node (i.e., EC2 instances in our case). However, this introduces a different challenge because the consumer must know the nodes' IP addresses (and nodes are often transient). The LoadBalancer configuration has a 1:1 relationship with the Service. If you have numerous Services, the cost of load balancers may not be feasible. [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) alleviates some of these challenges by providing a single external interface over HTTP or HTTPS with support for path-based routing. Leveraging the Nginx example one last time, we can create an Ingress that exposes a Service with the NodePort configuration via an Application Load Balancer.
 
 ```yaml title='05-ingress/ingress.yaml'
 apiVersion: networking.k8s.io/v1
@@ -458,7 +458,7 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --vers
   --wait
 ```
 
-Finally, we create a node pool that specifies what compute our workload can support. In this case, Karpenter can provision EC2 Spot instances from the `C`, `M`, or `R` families from any generation greater than two running Linux on AMD64 architecture.
+Finally, we create a node pool that specifies what compute our workload can support. In this case, Karpenter can provision EC2 Spot instances from the `c`, `m`, or `r` families from any generation greater than two running Linux on AMD64 architecture.
 
 ```shell title='09-karpenter/commands.sh'
 # create NodePool
@@ -1000,7 +1000,7 @@ spec:
 
 To perform the release, change the selector on the Production service. Then verify that the web application contains the green release instead of the blue.
 
-```shell
+```shell title='17-deployment-strategies/blue-green-deployment/commands.sh'
 # perform cutover
 # can also be done via manifest
 kubectl set selector service production-service 'role=green'
