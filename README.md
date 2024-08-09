@@ -1279,6 +1279,54 @@ ping 192.168.71.123
 
 ## 22: ArgoCD
 
+ArgoCD is a declarative continuous delivery tool for Kubernetes that leverages the GitOps pattern (i.e., storing configuration files in a Git repository to serve as the single source of truth). Instead of developers constantly typing `kubectl apply -f manifest.yaml`, ArgoCD monitors a specified Git repository for changes to manifests. ArgoCD applications can be configured to automatically update when deltas are detected or require manual intervention. Applications can be created using a GUI or through a YAML file. To get started, we install ArgoCD on the cluster and configure port forwarding to access the UI locally.
+
+```shell title='22-argocd/commands.sh'
+# install CLI
+brew install argocd
+# install ArgoCD on the cluster
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# get initial password
+argocd admin initial-password -n argocd
+# forward ports to access the ArgoCD UI locally
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Once we've navigated to the UI in the browser, we create an ArgoCD application using the following YAML:
+
+```yaml title='22-argocd/argocd-application.yaml'
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helm-webapp-dev
+spec:
+  destination:
+    name: ''
+    namespace: default
+    server: https://kubernetes.default.svc
+  source:
+    path: helm-webapp
+    # all credit to devopsjourney1 for the repository
+    # https://github.com/devopsjourney1
+    # https://www.youtube.com/@DevOpsJourney
+    repoURL: https://github.com/scottenriquez/argocd-examples
+    targetRevision: HEAD
+    helm:
+      valueFiles:
+        - values-dev.yaml
+  sources: []
+  project: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+```
+
+Based on the configuration, the ArgoCD application will automatically be updated when we commit to the specified GitHub repository. Via the UI, we can monitor the resources that have been created, sync status, commit information, etc.
+
+![ArgoCD](./22-argocd/argocd.png)
+
 ## 23: cdk8s
 The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (cdk8s). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
 
