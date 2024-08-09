@@ -10,9 +10,19 @@ I've taken and passed more than a dozen technology certification exams spanning 
 
 In summary, this material focuses on hands-on exercises for preparing for the exam and other tools in the cloud-agnostic and AWS ecosystems.
 
+## Preparing for the Exam
+While two hours may sound like plenty of time, you'll need to work quickly to complete the exam. With six to eight minutes per exercise (on average, each exercise is not timed individually), ensuring you can work efficiently and ergonomically is paramount. The following items were incredibly useful for me:
+- Running through a practice exam or two on Killer Shell to get a feel for the CKAD structure
+- Proficiency with [Vim motions](https://vimdoc.sourceforge.net/htmldoc/motion.html) (since most of the exam takes place in a terminal) to efficiently edit code
+- Generating YAML manifests via the command line for new resources instead of copying and pasting from documentation (e.g., `kubectl create namespace namespace-one -o yaml --dry-run=client`)
+Generating YAML manifests for existing resources that do not have one (e.g., `kubectl get namespace namespace-one -o yaml > namespace.yaml`)
+- Leveraging the `explain` command instead of looking up resource properties in the web documentation (e.g., `kubectl explain pod.spec`)
+- Memorizing the syntax for running commands in a container (e.g., `kubectl exec -it pod-one -- /bin/sh`) and for quickly creating a new Pod to run commands from (e.g., `kubectl run busybox-shell --image=busybox --rm -it --restart=Never -- sh`)
+- Refreshing knowledge of Docker commands like exporting an image (i.e., `docker save image:tag --output image.tar`)
+
 ## Materials and Getting Started 
-In addition to this content:
-- I highly recommend the [CKAD courses on PluralSight](https://www.pluralsight.com/paths/certified-kubernetes-application-developer-ckad-2023) for classroom learning 
+All code shown here resides in [this GitHub repository](https://github.com/scottenriquez/ckad-exam-prep-using-amazon-eks). In addition to this content, I highly recommend the following:
+- The [CKAD courses on PluralSight](https://www.pluralsight.com/paths/certified-kubernetes-application-developer-ckad-2023) for classroom learning 
 - [Killer Shell](https://killer.sh/pricing) is key for practice exams
 - [This GitHub repository](https://github.com/dgkanatsios/CKAD-exercises/blob/main/README.md) contains many useful CLI commands
 
@@ -1038,9 +1048,162 @@ With this approach, traffic will be directed to the canary pod on average 20% of
 ![Canary](./17-deployment-strategies/canary-deployment/canary.png)
 
 ## 18: Probes
+There are two primary types of probes: readiness and liveness. Kubernetes uses liveness probes to determine when to restart a container (i.e., a health check). It uses readiness probes to determine when a container is ready to accept traffic. These two probes are independent and unaware of each other. Probes of type HTTP, TCP, gRPC, and shell commands are supported. For this example, we'll use HTTP for both and add them as endpoints to an API:
 
-## 23: cdk8s
-The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust provisioning logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (cdk8s). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
+```python title='18-probes-and-health-checks/api-cdk/container/app/main.py'
+@api.get('/api/healthy')
+def config():
+    return {
+        'healthy': True
+    }
+
+@api.get('/api/ready')
+def config():
+    return {
+        'ready': True
+    }
+```
+
+In the Deployment manifest, we simply map the probes to the endpoints:
+
+```yaml title='18-probes-and-health-checks/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe-api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: probe-api
+  template:
+    metadata:
+      labels:
+        name: probe-api
+    spec:
+      containers:
+        - name: probe-api-container
+          # deployed via CDK
+          # replace with your image
+          image: 196736724465.dkr.ecr.us-west-2.amazonaws.com/cdk-hnb659fds-container-assets-196736724465-us-west-2:86b591781a296c7b2980608eeb67e30aaf316c732c92b6a47e536555bce0dc93 
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /api/healthy
+              port: 8000
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 8000
+```
+
+## 19: SecurityContext
+A SecurityContext resource configures a Pod's privilege and access control settings, such as enabling or disabling Linux capabilities and running as a specific user ID. This topic is straightforward but critical for the exam.
+
+```shell title='19-security-context/pod.yaml'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-pod
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  volumes:
+  - name: security-context-pod-volume
+    emptyDir: {}
+  containers:
+  - name: security-context-container
+    image: busybox:1.28
+    command: [ "sh", "-c", "id" ]
+    volumeMounts:
+    - name: security-context-pod-volume
+      mountPath: /data/security-context-volume
+    securityContext:
+      allowPrivilegeEscalation: false
+```
+
+## 20: ServiceAccounts and Role-Based Access Control (RBAC)
+
+
+## 21: NetworkPolicies
+By default, network traffic between Pods is unrestricted. In other words, any Pod can communicate with any other Pod. A NetworkPolicy is a Kubernetes resource that uses selectors to implement granular ingress and egress rules. However, a [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) must first be installed in the cluster to leverage NetworkPolicies. For this example, we will use [Calico](https://docs.tigera.io/calico/latest/about/). For EKS, this only requires a few commands:
+```shell title='21-network-policy/commands.sh'
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
+kubectl create -f - <<EOF
+kind: Installation
+apiVersion: operator.tigera.io/v1
+metadata:
+  name: default
+spec:
+  kubernetesProvider: EKS
+  cni:
+    type: AmazonVPC
+  calicoNetwork:
+    bgp: Disabled
+EOF
+```
+
+With the network plugin installed, we can define a simple NetworkPolicy based on three example Pods:
+
+```yaml title='21-network-policy/network-policy.yaml'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pod-one-and-two-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      # this label is also attached to the first two Pods but not the third
+      network: allow-pod-one-and-two 
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          network: allow-pod-one-and-two 
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          network: allow-pod-one-and-two 
+```
+
+After applying the manifest above, we can validate that the network traffic now behaves as expected (i.e., the first two Pods can communicate with each other without allowing traffic from the third).
+
+```shell title='21-network-policy/commands.sh'
+# get Pod IP addresses
+kubectl get pods -o wide
+# enter pod-three shell
+kubectl exec -it pod-three -- sh
+# ping pod-one and pod-two IP address (replace with yours)
+# these commands should hang
+ping 192.168.2.246
+ping 192.168.21.2
+# returning to default shell
+exit
+# enter pod-one shell
+kubectl exec -it pod-one -- sh
+# ping pod-two IP address (replace with yours)
+# this command should be successful
+ping 192.168.21.2
+# ping pod-three IP address (replace with yours)
+# this command should hang
+ping 192.168.71.123
+```
+
+## 22: ArgoCD
+
+## 23: `cdk8s`
+The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust provisioning logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (`cdk8s`). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
 
 ```typescript title='23-cdk8s/cluster/main.ts'
 export class MyChart extends Chart {
@@ -1089,3 +1252,8 @@ spec:
           ports:
             - containerPort: 80
 ```
+
+## 24: OpenFaaS
+
+## Disclaimer
+At the time of writing this blog post, I currently work for Amazon Web Services. The opinions and views expressed here are my own and not the views of my employer.

@@ -1,5 +1,4 @@
 # assumes cluster created from 00-eksctl-configuration first
-kubectl apply -f ./
 # install Calico
 # before installing the network plugin, all Pods will be able to communicate with one another
 kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
@@ -15,6 +14,7 @@ spec:
   calicoNetwork:
     bgp: Disabled
 EOF
+kubectl apply -f ./
 # get Pod IP addresses
 kubectl get pods -o wide
 # enter pod-three shell
