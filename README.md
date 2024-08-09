@@ -1105,7 +1105,7 @@ spec:
 ## 19: SecurityContext
 A SecurityContext resource configures a Pod's privilege and access control settings, such as enabling or disabling Linux capabilities and running as a specific user ID. This topic is straightforward but critical for the exam.
 
-```shell title='19-security-context/pod.yaml'
+```yaml title='19-security-context/pod.yaml'
 apiVersion: v1
 kind: Pod
 metadata:
@@ -1130,7 +1130,84 @@ spec:
 ```
 
 ## 20: ServiceAccounts and Role-Based Access Control (RBAC)
+Like how Identity and Access Management (IAM) in AWS grants principals permissions to specific actions for specific resources, Kubernetes Roles and ServiceAccounts allow resources within the cluster to access the control plane to perform operations on the cluster. For this example, let's grant a Pod access to `get` other Pods. We start by creating a Role:
 
+```yaml title='20-service-accounts-and-rbac/role.yaml'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+# "" indicates the core API group
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+```
+
+A ServiceAccount provides an identity for processes that run inside Pods. We generate one next:
+
+```yaml title='20-service-accounts-and-rbac/service-account.yaml'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubernetes.io/enforce-mountable-secrets: "true"
+  name: sa-pod-reader
+```
+
+Next, we bind the Role to the ServiceAccount:
+
+```yaml title='20-service-accounts-and-rbac/role-binding.yaml'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: ServiceAccount 
+  name: sa-pod-reader 
+  apiGroup: ""
+roleRef:
+  kind: Role
+  name: pod-reader 
+  apiGroup: "" 
+```
+
+Then, we create a Pod that leverages the ServiceAccount:
+
+```yaml title='20-service-accounts-and-rbac/pod.yaml'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: reader-pod 
+spec:
+  serviceAccountName: sa-pod-reader
+  containers:
+    - name: reader-container
+      image: alpine:3.12
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      command: ["/bin/sh"]
+      args: ["-c", "sleep 3600"]
+```
+
+Finally, we can test specific operations against the API server to validate that certain actions are allowed and others are denied.
+
+```shell title='20-service-accounts-and-rbac/commands.sh'
+# entering Pod shell
+kubectl exec -it reader-pod -- sh
+# install curl
+apk --update add curl
+# get Pods
+# allowed by Role
+curl -s --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes/api/v1/namespaces/default/pods
+# get Secrets
+# denied by Role
+curl -s --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes/api/v1/namespaces/default/secrets
+```
 
 ## 21: NetworkPolicies
 By default, network traffic between Pods is unrestricted. In other words, any Pod can communicate with any other Pod. A NetworkPolicy is a Kubernetes resource that uses selectors to implement granular ingress and egress rules. However, a [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) must first be installed in the cluster to leverage NetworkPolicies. For this example, we will use [Calico](https://docs.tigera.io/calico/latest/about/). For EKS, this only requires a few commands:

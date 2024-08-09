@@ -4,6 +4,7 @@ metadata:
   namespace: default
   name: pod-reader
 rules:
-- apiGroups: [""] # "" indicates the core API group
+# "" indicates the core API group
+- apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "watch", "list"]
