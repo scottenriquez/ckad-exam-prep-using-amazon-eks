@@ -1,7 +1,7 @@
 # Preparing for the Certified Kubernetes Application Developer (CKAD) Exam Using Amazon EKS
 
-## Motivation
-I've taken and passed more than a dozen technology certification exams spanning AWS, Azure, HashiCorp, and more. While I've used Kubernetes professionally in a few capacities (particularly in customer engagements while working at AWS), I wanted to cement my knowledge and improve my mastery with a systematic approach. I decided to prepare for the Certified Kubernetes Application Developer (CKAD) exam. This exam is unique in several ways. Namely, it's all hands-on in a lab environment. Azure exams often have a coding, configuration, or CLI command component, but even these are typically multiple-choice questions. The CKAD presents you with a virtual desktop and several Kubernetes clusters, making you tackle 15-20 tasks with a strict two-hour time limit. I put together this repository for preparation for a few reasons:
+## Motivation and Background
+I've taken and passed more than a dozen technology certification exams spanning AWS, Azure, HashiCorp, and more. While I've used Kubernetes professionally in a few capacities (particularly in customer engagements while working at AWS), I wanted to cement my knowledge and improve my mastery with a systematic approach, so I decided to prepare for the Certified Kubernetes Application Developer (CKAD) exam. This exam is unique in several ways. Namely, it's all hands-on in a lab environment. Azure exams often have a coding, configuration, or CLI command component, but even these are typically multiple-choice questions. The CKAD presents you with a virtual desktop and several Kubernetes clusters, making you tackle 15-20 tasks with a strict two-hour time limit. I put together this repository for preparation for a few reasons:
 
 - I wanted to document all of my hands-on preparation for when I have to recertify in two years
 - I wanted to share my knowledge with others and offer a supplemental guide to a CKAD course
@@ -11,25 +11,25 @@ I've taken and passed more than a dozen technology certification exams spanning 
 In summary, this material focuses on hands-on exercises for preparing for the exam and other tools in the cloud-agnostic and AWS ecosystems.
 
 ## Preparing for the Exam
-While two hours may sound like plenty of time, you'll need to work quickly to complete the exam. With six to eight minutes per exercise (on average, each exercise is not timed individually), ensuring you can work efficiently and ergonomically is paramount. The following items were incredibly useful for me:
-- Running through a practice exam or two on Killer Shell to get a feel for the CKAD structure
+While two hours may sound like plenty of time, you'll need to work quickly to complete the exam. With an average of six to eight minutes per exercise (each is **not** timed individually), ensuring you can work efficiently and ergonomically is paramount. The following items were incredibly useful for me:
+- Running through a practice exam to get a feel for the CKAD structure
 - Proficiency with [Vim motions](https://vimdoc.sourceforge.net/htmldoc/motion.html) (since most of the exam takes place in a terminal) to efficiently edit code
 - Generating YAML manifests via the command line for new resources instead of copying and pasting from documentation (e.g., `kubectl create namespace namespace-one -o yaml --dry-run=client`)
-Generating YAML manifests for existing resources that do not have one (e.g., `kubectl get namespace namespace-one -o yaml > namespace.yaml`)
+- Generating YAML manifests for existing resources that do not have one (e.g., `kubectl get namespace namespace-one -o yaml > namespace.yaml`)
 - Leveraging the `explain` command instead of looking up resource properties in the web documentation (e.g., `kubectl explain pod.spec`)
 - Memorizing the syntax for running commands in a container (e.g., `kubectl exec -it pod-one -- /bin/sh`) and for quickly creating a new Pod to run commands from (e.g., `kubectl run busybox-shell --image=busybox --rm -it --restart=Never -- sh`)
 - Refreshing knowledge of Docker commands like exporting an image (i.e., `docker save image:tag --output image.tar`)
 
 ## Materials and Getting Started 
 All code shown here resides in [this GitHub repository](https://github.com/scottenriquez/ckad-exam-prep-using-amazon-eks). In addition to this content, I highly recommend the following:
-- The [CKAD courses on PluralSight](https://www.pluralsight.com/paths/certified-kubernetes-application-developer-ckad-2023) for classroom learning 
+- The [CKAD courses on Pluralsight](https://www.pluralsight.com/paths/certified-kubernetes-application-developer-ckad-2023) for classroom learning 
 - [Killer Shell](https://killer.sh/pricing) is key for practice exams
 - [This GitHub repository](https://github.com/dgkanatsios/CKAD-exercises/blob/main/README.md) contains many useful CLI commands
 
-My preferred approach was to work through the PluralSight course first. After reviewing the classroom material, I designed and worked through the examples below. If you have foundational Kubernetes knowledge, skip to the most useful exercises. Each one is designed to be a standalone experience.
+My preferred approach was to work through the Pluralsight course first. After reviewing the classroom material, I designed and implemented the examples below. If you have foundational Kubernetes knowledge, skip to the most useful exercises. Each one is designed to be a standalone experience.
 
-## 00: `eksctl` Configuration
-`eksctl` is a powerful CLI tool that quickly spins and tears down Kubernetes clusters via Amazon EKS. Nearly all of the exercises below start by leveraging the tool to create a cluster:
+## 00: eksctl Configuration
+eksctl is a powerful CLI tool that quickly spins up and tears down Kubernetes clusters via Amazon EKS. Nearly all of the exercises below start by leveraging the tool to create a cluster:
 
 ```shell title='00-eksctl-configuration/create-cluster.sh'
 # before running these commands, first authenticate with AWS (e.g., aws configure sso)
@@ -63,8 +63,8 @@ This cluster can be transient for learning purposes. To keep costs low, be sure 
 eksctl delete cluster --config-file=cluster.yaml --disable-nodegroup-eviction
 ```
 
-## 01: First Deployment with `nginx`
-With the cluster created, we can now make our first [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/). We'll start by creating a web server with three replicas using the latest `nginx` image:
+## 01: First Deployment with Nginx (CKAD Topic)
+With the cluster created, we can now make our first [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/). We'll start by creating a web server with three replicas using the latest Nginx image:
 
 ```yaml title='01-first-deployment-with-nginx/deployment.yaml'
 apiVersion: apps/v1
@@ -98,7 +98,7 @@ kubectl get pods -o wide
 kubectl delete -f ./ 
 ```
 
-## 02: Pod Communication over IP
+## 02: Pod Communication over IP (CKAD Topic)
 The Deployment in this example is identical to the previous: a web server with three replicas. Use the following commands to explore how IP addressing works for Pods:
 
 ```shell title = '02-pod-communication-over-ip/commands.sh'
@@ -120,7 +120,7 @@ exit
 kubectl delete -f ./ 
 ```
 
-## 03: First Service
+## 03: First Service (CKAD Topic)
 Since each Pod has a separate IP address that can change, we can use a [Service](https://kubernetes.io/docs/concepts/services-networking/service/) to keep track of the Pod's IP addresses on our behalf. This abstraction allows us to group Pods via a [selector](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) and reference them via a single Service. In the Service manifest and leveraging the same Deployment as before, we specify how to select which Pods to target, what port to expose, and the type of Service:
 
 ```yaml title='03-first-service/service.yaml'
@@ -160,8 +160,8 @@ exit
 kubectl delete -f ./
 ```
 
-## 04: Elastic Load Balancers for Kubernetes Services
-A significant benefit of Kubernetes is that it can create and manage resources in AWS on our behalf. Using the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/), we can specify [annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/guide/service/annotations/) to create a Service of type `LoadBalancer` that leverages an Elastic Load Balancer. Using the same Deployment from the past two sections, this manifest illustrates how to leverage a Network Load Balancer for the Service:
+## 04: Elastic Load Balancers for Kubernetes Service (CKAD Topic)
+A significant benefit of Kubernetes is that it can create and manage resources in AWS on our behalf. Using the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/), we can specify [annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/guide/service/annotations/) to create a Service of type LoadBalancer that leverages an Elastic Load Balancer. Using the same Deployment from the past two sections, this manifest illustrates how to leverage a Network Load Balancer for the Service:
 
 ```yaml title='04-load-balancer/load-balancer.yaml'
 apiVersion: v1
@@ -188,7 +188,7 @@ status:
     - ip: "192.0.2.127" 
 ```
 
-The following commands deploy the `LoadBalancer` service:
+The following commands deploy the LoadBalancer Service:
 ```shell title='04-load-balancer/commands.sh'
 # assumes cluster created from 00-eksctl-configuration first
 kubectl apply -f ./ 
@@ -204,8 +204,8 @@ exit
 kubectl delete -f ./
 ```
 
-## 05: Ingress
-Services of type `ClusterIP` only support internal cluster networking. The `NodePort` configuration allows for external communication by exposing the same port on every node (i.e., EC2 instances). However, this introduces a different challenge because the consumer must know the nodes' IP addresses (and nodes are often transient). The `LoadBalancer` configuration has a 1:1 relationship with the service. If you have numerous services, the cost of load balancers may not be feasible. Ingress alleviates some of these challenges by providing a single external interface over HTTP or HTTPS with support for path-based routing. Leveraging the `nginx` example one last time, we can create an Ingress that exposes a Service with the `NodePort` configuration via an Application Load Balancer.
+## 05: Ingress (CKAD Topic)
+Services of type ClusterIP only support internal cluster networking. The NodePort configuration allows for external communication by exposing the same port on every node (i.e., EC2 instances in our case). However, this introduces a different challenge because the consumer must know the nodes' IP addresses (and nodes are often transient). The LoadBalancer configuration has a 1:1 relationship with the service. If you have numerous services, the cost of load balancers may not be feasible. [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) alleviates some of these challenges by providing a single external interface over HTTP or HTTPS with support for path-based routing. Leveraging the Nginx example one last time, we can create an Ingress that exposes a Service with the NodePort configuration via an Application Load Balancer.
 
 ```yaml title='05-ingress/ingress.yaml'
 apiVersion: networking.k8s.io/v1
@@ -264,8 +264,8 @@ kubectl describe ingress
 kubectl delete -f ./
 ```
 
-## 06: Jobs and CronJobs
-Jobs are a powerful mechanism that reliably ensures that Pods are completed successfully. CronJobs extend this functionality by supporting a recurring schedule.
+## 06: Jobs and CronJobs (CKAD Topic)
+[Jobs](https://kubernetes.io/docs/concepts/workloads/controllers/job/) are a powerful mechanism that reliably ensures that Pods are completed successfully. [CronJobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) extend this functionality by supporting a recurring schedule.
 
 ```yaml title='06-jobs-and-cronjobs/job.yaml'
 apiVersion: batch/v1
@@ -306,8 +306,8 @@ spec:
           restartPolicy: OnFailure
 ```
 
-## 07: Metrics Server and Pod Autoscaling
-[Metrics Server](https://github.com/kubernetes-sigs/metrics-server) provides container-level resource metrics for autoscaling within Kubernetes. It is not installed by default and is meant only for autoscaling purposes. There are [other options](autoscaler), such as Container Insights, Prometheus, and Grafana, for more accurate resource usage metrics (covered later in this post). With Metrics Server installed, a [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) resource can be configured with values such as target metric, minimum replicas, maximum replicas, etc.
+## 07: Metrics Server and Pod Autoscaling (CKAD Topic)
+[Metrics Server](https://github.com/kubernetes-sigs/metrics-server) provides container-level resource metrics for autoscaling within Kubernetes. It is not installed by default and is meant only for autoscaling purposes. There are [other options](https://github.com/kubernetes-sigs/metrics-server?tab=readme-ov-file#use-cases), such as Container Insights, Prometheus, and Grafana, for more accurate resource usage metrics (all covered later in this post). With Metrics Server installed, a [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) resource can be configured with values such as target metric, minimum replicas, maximum replicas, etc.
 
 ```yaml title='07-metrics-server-and-pod-autoscaling/horizontal-pod-autoscaler.yaml'
 apiVersion: autoscaling/v2
@@ -343,8 +343,8 @@ status:
 
 HorizontalPodAutoscalers create and destroy Pods based on metric usage. On the other hand, [vertical autoscaling](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler) rightsizes the resource limits (covered in the next section) for Pods.
 
-## 08: Resource Management
-When creating a Pod, you can optionally specify an estimate for the number of resources a container needs (e.g., CPU and RAM). This baseline estimate should be specified in the `requests` parameter. The `limits` parameter specifies the threshold for which a container should be terminated to prevent starvation of other processes. Limits also help with cluster capacity planning (e.g., EKS node groups). Below is the `nginx` Deployment from earlier with resource management applied:
+## 08: Resource Management (CKAD Topic)
+When creating a Pod, you can optionally specify an estimate for the number of resources a container needs (e.g., CPU and RAM). This baseline estimate should be specified in the `requests` parameter. The `limits` parameter specifies the threshold for which a container should be terminated to prevent starvation of other processes. Limits also help with cluster capacity planning (e.g., EKS node groups). Below is the Nginx Deployment from earlier with resource management applied:
 
 ```yaml title='08-resource-management/deployment.yaml'
 apiVersion: apps/v1
@@ -378,7 +378,7 @@ spec:
 ```
 
 ## 09: Karpenter
-In the previous two sections, we covered how additional Pods are created (i.e., horizontal scaling) and how resources (e.g., CPU and RAM) are requested and limited in Kubernetes. The next topic is managing the underlying compute when additional infrastructure is required. There are two primary options for scaling compute using EKS: Cluster Autoscaler and Karpenter. On AWS, Cluster Autoscaler leverages EC2 Auto Scaling Groups (ASGs) to manage node groups. Cluster Autoscaler typically runs as a Deployment in the cluster. Karpenter does not leverage ASGs, allowing for the ability to select from a wide array of instance types that match the exact requirements of the additional containers. Karpenter also allows for easy adoption of Spot for further cost savings on top of better matching the workload to compute resources. The cluster defined in `00-eksctl-configuration` uses an unmanaged node group and does not leverage Cluster Autoscaler or Karpenter. To demonstrate how to leverage Karpenter, we'll need a different cluster configuration file. We can dynamically generate it like so:
+In the previous two sections, we covered how additional Pods are created (i.e., horizontal scaling) and how resources (e.g., CPU and RAM) are requested and limited in Kubernetes. The next topic is managing the underlying compute when additional infrastructure is required. There are two primary options for scaling compute using EKS on EC2: Cluster Autoscaler and [Karpenter](https://karpenter.sh/). On AWS, Cluster Autoscaler leverages EC2 Auto Scaling Groups (ASGs) to manage node groups. Cluster Autoscaler typically runs as a Deployment in the cluster. Karpenter does not leverage ASGs, allowing for the ability to select from a wide array of instance types that match the exact requirements of the additional containers. Karpenter also allows for easy adoption of [Spot](https://aws.amazon.com/ec2/spot/) for further cost savings on top of better matching the workload to compute resources. The cluster defined in `00-eksctl-configuration` uses an unmanaged node group and does not leverage Cluster Autoscaler or Karpenter. To demonstrate how to leverage Karpenter, we'll need a different cluster configuration file. We can dynamically generate it like so:
 
 ```shell title='09-karpenter/commands.sh'
 # set environment variables
@@ -458,7 +458,7 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --vers
   --wait
 ```
 
-Finally, we create a node pool that specifies what compute our workload can support. In this case, Karpenter can provision EC2 Spot instances from the `C`, `M`, or `R` family from any generation greater than two running Linux on AMD64 architecture.
+Finally, we create a node pool that specifies what compute our workload can support. In this case, Karpenter can provision EC2 Spot instances from the `C`, `M`, or `R` families from any generation greater than two running Linux on AMD64 architecture.
 
 ```shell title='09-karpenter/commands.sh'
 # create NodePool
@@ -532,7 +532,7 @@ As expected, the node pool leverages Spot instances.
 
 ![Karpenter instances](./09-karpenter/karpenter-spot-instance.png)
 
-You can monitor the Karpenter logs via the command below. Less than a minute after deleting the Deployment, the `c5n.2xlarge` instance was terminated. Be sure to follow the cleanup steps when you have completed them to ensure no resources become orphaned.
+You can monitor the Karpenter logs via the command below. Less than a minute after deleting the Deployment, the `c5n.2xlarge` instance was terminated. Be sure to follow the cleanup steps when done to ensure no resources become orphaned.
 
 ```shell title='09-karpenter/commands.sh'
 # monitor Karpenter events
@@ -548,7 +548,7 @@ aws ec2 describe-launch-templates --filters Name=tag:karpenter.k8s.aws/cluster,V
 eksctl delete cluster --name "${CLUSTER_NAME}"
 ```
 
-## 10: Persistent Volumes Using EBS 
+## 10: Persistent Volumes Using EBS (CKAD Topic)
 Storage in Kubernetes can be classified as either ephemeral or persistent. Without leveraging [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) (PVs), containers read and write data to the volume attached to the node they run on. Ephemeral storage is temporary and tied to the Pod's lifecycle. If requirements dictate that the storage persists or be shared across Pods, there are some prerequisites before EBS can be leveraged for PVs.
 
 The first step is installing the [AWS EBS Container Storage Interface (CSI) driver](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html). The next step is to define a [StorageClass](https://kubernetes.io/docs/concepts/storage/storage-classes/) (SC) that includes configuration such as volume type (e.g., `gp3`), encryption, etc. The final step is to reference a [PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#dynamic) (PVC) when deploying a Pod in order to dynamically provision the EBS volume and attach to the containers.
@@ -575,7 +575,7 @@ Once completed, the add-on will appear in the AWS Console.
 
 ![EBS CSI](./10-persistent-volumes/eks-ebs-csi-add-on.png)
 
-Next, define the SC and PVC:
+Next, define the StorageClass and PersistentVolumeClaim:
 
 ```yaml title='10-persistent-volumes/storage-class.yaml'
 apiVersion: storage.k8s.io/v1
@@ -638,7 +638,7 @@ As soon as the Pod is created, a `gp3` volume is provisioned.
 ![PVC](./10-persistent-volumes/pvc.png)
 
 ## 11: Prometheus and Grafana
-The following several sections focus on observability. [Prometheus](https://prometheus.io/) is an open-source monitoring system commonly leveraged in Kubernetes clusters. As a de facto standard, it's widely used with [Grafana](https://grafana.com/) to provide cluster monitoring. Using Helm we can quickly deploy both of these tools to our cluster.
+The next several sections focus on observability. [Prometheus](https://prometheus.io/) is an open-source monitoring system commonly leveraged in Kubernetes clusters. As a de facto standard, it's widely used with [Grafana](https://grafana.com/) to provide cluster monitoring. Using Helm we can quickly deploy both of these tools to our cluster.
 
 ```shell
 # assumes cluster created from 00-eksctl-configuration first
@@ -666,7 +666,7 @@ And Grafana:
 ![Grafana](./11-prometheus-and-grafana/grafana.png)
 
 ## 12: Container Insights
-Prometheus and Grafana are both open-source and cloud-agnostic. AWS has a native infrastructure monitoring offering called Container Insights that integrates cluster data with the AWS Console via CloudWatch with two simple commands:
+Prometheus and Grafana are both open-source and cloud-agnostic. AWS has a native infrastructure monitoring offering called [Container Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights.html) that integrates cluster data with the AWS Console via CloudWatch with two simple commands:
 
 ```shell title='12-container-insights/commands.sh'
 # assumes cluster created from 00-eksctl-configuration first
@@ -763,8 +763,8 @@ ORDER BY
 
 AWS also offers [open-source QuickSight dashboards](https://d1s0yx3p3y3rah.cloudfront.net/anonymous-embed?dashboard=containers-cost-allocation&sheet=default) that provide a visualization of this data.
 
-## 14: ConfigMap
-The following two sections focus on configuration management. A [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) is a Kubernetes construct that stores non-sensitive key-value pairs (e.g., URLs, feature flags, etc.). There are several ways to consume ConfigMaps, but we'll set an environment variable for a container below. First, I created a TypeScript Cloud Development Kit (CDK) application to deploy a FastAPI container to Elastic Container Repository (ECR). The API is simple:
+## 14: ConfigMap (CKAD Topic)
+The following two sections focus on configuration management. A [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/) is a Kubernetes construct that stores non-sensitive key-value pairs (e.g., URLs, feature flags, etc.). There are several ways to consume ConfigMaps, but we'll set an environment variable for a container below. First, I created a TypeScript [Cloud Development Kit](https://aws.amazon.com/cdk/) (CDK) application to deploy a [FastAPI](https://fastapi.tiangolo.com/) container to Elastic Container Repository (ECR). The API is simple:
 
 ```python title='14-configmap/api-cdk/container/app/main.py'
 api = fastapi.FastAPI()
@@ -844,8 +844,8 @@ wget config-api-service:80/api/config
 cat config
 ```
 
-## 15: Secrets
-[Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) are very similar to ConfigMaps except that they are intended for sensitive information. `Opaque` is the default type of Secret for arbitrary user data unless you need to store SSH credentials, TLS certificates, `~/.dockercfg`, etc. For a complete list of types, see the [documentation](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types). Kubernetes Secrets do not encrypt the data on your behalf. That responsibility is on the developer.
+## 15: Secrets (CKAD Topic)
+[Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) are very similar to ConfigMaps except that they are intended for sensitive information. Opaque is the default type of Secret for arbitrary user data unless you need to store SSH credentials, TLS certificates, `~/.dockercfg`, etc. For a complete list of types, see the [documentation](https://kubernetes.io/docs/concepts/configuration/secret/#secret-types). Kubernetes Secrets do not encrypt the data on your behalf. That responsibility is on the developer.
 
 ```yaml title='15-secrets/secret.yaml'
 apiVersion: v1
@@ -857,8 +857,8 @@ data:
   password: MWYyZDFlMmU2N2Rm
 ```
 
-## 16: Multi-Container Pods
-In the examples so far, Pods and containers had a 1:1 relationship. Two common patterns for multi-container Pods in Kubernetes are [init containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) and [sidecars](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/). To illustrate these patterns, we'll use a Postgres database with a backend that relies on it. Given that the backend container depends on the database, we must ensure that Postgres is available before starting it. To do so, we can use an init container that verifies the ability to connect to the database. All init containers run before the Pod starts. If any init container fails, the Pod fails.
+## 16: Multi-Container Pods (CKAD Topic)
+In the examples so far, Pods and containers had a 1:1 relationship. Two common patterns for multi-container Pods in Kubernetes are [init containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) and [sidecars](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/). To illustrate these patterns, we'll use a PostgreSQL database with a backend that relies on it. Given that the backend container depends on the database, we must ensure that PostgreSQL is available before starting it. To do so, we can use an init container that verifies the ability to connect to the database. All init containers run before the Pod starts. If any init container fails, the Pod fails.
 
 ```yaml title='16-multi-container-pods/backend.deployment.yaml'
 apiVersion: apps/v1
@@ -945,7 +945,7 @@ kubectl delete -f ./
 
 ![Adminer](./16-multi-container-pods/adminer.png)
 
-## 17: Deployment Strategies 
+## 17: Deployment Strategies (CKAD Topic)
 The four most common deployment strategies are rolling, blue/green, canary, and recreate. Rolling updates involve deploying new Pods in a batch while decreasing old Pods at the same rate. This is the default behavior in Kubernetes. Blue/green deployments provision an entirely new environment (green) parallel to the existing one (blue), then perform a Service selector cutover when approved for production release. Canary deployments allow developers to test a new deployment with a subset of users in parallel with the current production release. Recreating an environment involves destroying the old environment and then provisioning a new one, which may result in downtime.
 
 For a blue/green release, let's start by creating the blue and green deployments. The following YAML for the blue deployment is nearly identical to the green. The only difference is the Docker image used.
@@ -1047,8 +1047,8 @@ With this approach, traffic will be directed to the canary pod on average 20% of
 
 ![Canary](./17-deployment-strategies/canary-deployment/canary.png)
 
-## 18: Probes
-There are two primary types of probes: readiness and liveness. Kubernetes uses liveness probes to determine when to restart a container (i.e., a health check). It uses readiness probes to determine when a container is ready to accept traffic. These two probes are independent and unaware of each other. Probes of type HTTP, TCP, gRPC, and shell commands are supported. For this example, we'll use HTTP for both and add them as endpoints to an API:
+## 18: Probes (CKAD Topic)
+There are two primary types of probes: [readiness and liveness](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/). Kubernetes uses liveness probes to determine when to restart a container (i.e., a health check). It uses readiness probes to determine when a container is ready to accept traffic. These two probes are independent and unaware of each other. Probes of type HTTP, TCP, gRPC, and shell commands are supported. For this example, we'll use HTTP for both and add them as endpoints to an API:
 
 ```python title='18-probes-and-health-checks/api-cdk/container/app/main.py'
 @api.get('/api/healthy')
@@ -1102,8 +1102,8 @@ spec:
               port: 8000
 ```
 
-## 19: SecurityContext
-A SecurityContext resource configures a Pod's privilege and access control settings, such as enabling or disabling Linux capabilities and running as a specific user ID. This topic is straightforward but critical for the exam.
+## 19: SecurityContext (CKAD Topic)
+A [SecurityContext](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) resource configures a Pod's privilege and access control settings, such as enabling or disabling Linux capabilities and running as a specific user ID. This topic is straightforward but critical for the exam.
 
 ```yaml title='19-security-context/pod.yaml'
 apiVersion: v1
@@ -1129,8 +1129,8 @@ spec:
       allowPrivilegeEscalation: false
 ```
 
-## 20: ServiceAccounts and Role-Based Access Control (RBAC)
-Like how Identity and Access Management (IAM) in AWS grants principals permissions to specific actions for specific resources, Kubernetes Roles and ServiceAccounts allow resources within the cluster to access the control plane to perform operations on the cluster. For this example, let's grant a Pod access to `get` other Pods. We start by creating a Role:
+## 20: ServiceAccounts and Role-Based Access Control (CKAD Topic)
+Like how Identity and Access Management (IAM) in AWS grants principals permissions to specific actions for specific resources, Kubernetes [Roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) and [ServiceAccounts](https://kubernetes.io/docs/concepts/security/service-accounts/) allow resources within the cluster to leverage the control plane to perform operations on the cluster. For this example, let's grant a Pod access to `get` other Pods. We start by creating a Role:
 
 ```yaml title='20-service-accounts-and-rbac/role.yaml'
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1209,8 +1209,8 @@ curl -s --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/ser
 curl -s --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt https://kubernetes/api/v1/namespaces/default/secrets
 ```
 
-## 21: NetworkPolicies
-By default, network traffic between Pods is unrestricted. In other words, any Pod can communicate with any other Pod. A NetworkPolicy is a Kubernetes resource that uses selectors to implement granular ingress and egress rules. However, a [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) must first be installed in the cluster to leverage NetworkPolicies. For this example, we will use [Calico](https://docs.tigera.io/calico/latest/about/). For EKS, this only requires a few commands:
+## 21: NetworkPolicy (CKAD Topic)
+By default, network traffic between Pods is unrestricted. In other words, any Pod can communicate with any other Pod. A [NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) is a Kubernetes resource that uses selectors to implement granular ingress and egress rules. However, a [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) must first be installed in the cluster to leverage NetworkPolicies. For this example, we will use [Calico](https://docs.tigera.io/calico/latest/about/). For EKS, this only requires two commands:
 ```shell title='21-network-policy/commands.sh'
 kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.1/manifests/tigera-operator.yaml
 kubectl create -f - <<EOF
@@ -1279,8 +1279,8 @@ ping 192.168.71.123
 
 ## 22: ArgoCD
 
-## 23: `cdk8s`
-The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust provisioning logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (`cdk8s`). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
+## 23: cdk8s
+The AWS Cloud Development Kit (CDK) is an open-source software development framework that brings the capabilities of general-purpose programming languages (e.g., unit testing, adding robust logic, etc.) to infrastructure as code. In addition to being more ergonomic for those with a software engineering background, CDK also provides higher levels of abstraction through [constructs](https://docs.aws.amazon.com/cdk/v2/guide/constructs.html) and [patterns](https://cdkpatterns.com/). HashiCorp also created a spinoff called [CDK for Terraform](https://developer.hashicorp.com/terraform/cdktf) (CDKTF). Using a similar design, AWS created a project called [Cloud Development Kit for Kubernetes](https://cdk8s.io/) (cdk8s). Rather than managing the cloud infrastructure, cdk8s only manages the resources within a Kubernetes cluster. The code compiles the TypeScript (or language of your choice) to a YAML manifest file. Below is an example:
 
 ```typescript title='23-cdk8s/cluster/main.ts'
 export class MyChart extends Chart {
