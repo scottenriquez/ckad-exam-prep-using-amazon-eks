@@ -1331,6 +1331,44 @@ spec:
 ```
 
 ## 24: OpenFaaS
+[OpenFaaS](https://www.openfaas.com/) is a nifty project that allows you to run serverless functions on Kubernetes. We start by installing OpenFaaS to our cluster and as a CLI:
+
+```shell title='24-openfaas/commands.sh'
+# install CLI on local machine
+# https://docs.openfaas.com/cli/install/
+brew install faas-cli
+# create namespace
+kubectl apply -f namespace.yaml
+# add Helm charts to cluster
+helm repo add openfaas https://openfaas.github.io/faas-netes
+helm install my-openfaas openfaas/openfaas --version 14.2.49 --namespace openfaas
+# forward the API's port in a separate terminal tab
+kubectl port-forward svc/gateway 8080 --namespace openfaas
+# fetch password and log in
+faas-cli login --password $(kubectl -n openfaas get secret basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
+```
+
+Next, we create a simple function that looks similar to AWS Lambda:
+
+```shell title='24-openfaas/commands.sh'
+# create a function
+faas-cli new --lang python openfaas-python-function
+# requires Docker running locally
+faas-cli build -f openfaas-python-function.yml
+# push to DockerHub
+faas-cli publish -f openfaas-python-function.yml
+# deploy to cluster
+faas-cli deploy -f openfaas-python-function.yml
+```
+
+```python title='24-openfaas/openfaas-python-function/handler.py'
+def handle(request):
+    return "Hello from OpenFaaS!"
+```
+
+Finally, we can invoke the function through the web UI:
+
+![OpenFaaS](./24-openfaas/open-faas.png)
 
 ## Disclaimer
 At the time of writing this blog post, I currently work for Amazon Web Services. The opinions and views expressed here are my own and not the views of my employer.
